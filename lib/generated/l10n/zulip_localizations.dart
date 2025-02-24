@@ -397,7 +397,7 @@ abstract class ZulipLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Could not connect'**
-  String get errorLoginCouldNotConnectTitle;
+  String get errorCouldNotConnectTitle;
 
   /// Error message when loading a message that does not exist.
   ///
@@ -567,11 +567,11 @@ abstract class ZulipLocalizations {
   /// **'Jot down something'**
   String get composeBoxSelfDmContentHint;
 
-  /// Hint text for content input when sending a message to a channel
+  /// Hint text for content input when sending a message to a channel.
   ///
   /// In en, this message translates to:
-  /// **'Message #{channel} > {topic}'**
-  String composeBoxChannelContentHint(String channel, String topic);
+  /// **'Message {destination}'**
+  String composeBoxChannelContentHint(String destination);
 
   /// Tooltip for send button in compose box.
   ///
@@ -800,6 +800,12 @@ abstract class ZulipLocalizations {
   /// In en, this message translates to:
   /// **'Topics are required in this organization.'**
   String get topicValidationErrorMandatoryButEmpty;
+
+  /// Error message in the dialog for invalid API key.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account at {url} could not be authenticated. Please try logging in again or use another account.'**
+  String errorInvalidApiKeyMessage(String url);
 
   /// Error message when an API call returned an invalid response.
   ///

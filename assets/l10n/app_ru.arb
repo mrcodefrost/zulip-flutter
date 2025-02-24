@@ -325,10 +325,6 @@
       }
     }
   },
-  "errorLoginCouldNotConnectTitle": "Не удалось подключиться",
-  "@errorLoginCouldNotConnectTitle": {
-    "description": "Error title when the app could not connect to the server."
-  },
   "errorMessageDoesNotSeemToExist": "Это сообщение, похоже, отсутствует.",
   "@errorMessageDoesNotSeemToExist": {
     "description": "Error message when loading a message that does not exist."
@@ -372,20 +368,6 @@
   "composeBoxGenericContentHint": "Ввести сообщение",
   "@composeBoxGenericContentHint": {
     "description": "Hint text for content input when sending a message."
-  },
-  "composeBoxChannelContentHint": "Сообщение для #{channel} > {topic}",
-  "@composeBoxChannelContentHint": {
-    "description": "Hint text for content input when sending a message to a channel",
-    "placeholders": {
-      "channel": {
-        "type": "String",
-        "example": "channel name"
-      },
-      "topic": {
-        "type": "String",
-        "example": "topic name"
-      }
-    }
   },
   "composeBoxSendTooltip": "Отправить",
   "@composeBoxSendTooltip": {
