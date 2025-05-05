@@ -10,6 +10,7 @@ import 'package:zulip/api/model/submessage.dart';
 import 'package:zulip/api/route/messages.dart';
 import 'package:zulip/api/route/realm.dart';
 import 'package:zulip/api/route/channels.dart';
+import 'package:zulip/model/binding.dart';
 import 'package:zulip/model/database.dart';
 import 'package:zulip/model/narrow.dart';
 import 'package:zulip/model/settings.dart';
@@ -916,6 +917,8 @@ InitialSnapshot initialSnapshot({
   RealmWildcardMentionPolicy? realmWildcardMentionPolicy,
   bool? realmMandatoryTopics,
   int? realmWaitingPeriodThreshold,
+  bool? realmAllowMessageEditing,
+  int? realmMessageContentEditLimitSeconds,
   Map<String, RealmDefaultExternalAccount>? realmDefaultExternalAccounts,
   int? maxFileUploadSizeMib,
   Uri? serverEmojiDataUrl,
@@ -953,6 +956,8 @@ InitialSnapshot initialSnapshot({
     realmWildcardMentionPolicy: realmWildcardMentionPolicy ?? RealmWildcardMentionPolicy.everyone,
     realmMandatoryTopics: realmMandatoryTopics ?? true,
     realmWaitingPeriodThreshold: realmWaitingPeriodThreshold ?? 0,
+    realmAllowMessageEditing: realmAllowMessageEditing ?? true,
+    realmMessageContentEditLimitSeconds: realmMessageContentEditLimitSeconds ?? 600,
     realmDefaultExternalAccounts: realmDefaultExternalAccounts ?? {},
     maxFileUploadSizeMib: maxFileUploadSizeMib ?? 25,
     serverEmojiDataUrl: serverEmojiDataUrl
@@ -989,4 +994,16 @@ UpdateMachine updateMachine({
     account: account, initialSnapshot: initialSnapshot);
   return UpdateMachine.fromInitialSnapshot(
     store: store, initialSnapshot: initialSnapshot);
+}
+
+PackageInfo packageInfo({
+  String? version,
+  String? buildNumber,
+  String? packageName,
+}) {
+  return PackageInfo(
+    version: version ?? '1.0.0',
+    buildNumber: buildNumber ?? '1',
+    packageName: packageName ?? 'com.example.app',
+  );
 }

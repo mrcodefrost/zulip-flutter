@@ -1,8 +1,5 @@
-import 'dart:math';
-
 import 'package:collection/collection.dart';
-// ignore: undefined_hidden_name // anticipates https://github.com/flutter/flutter/pull/164818
-import 'package:flutter/material.dart' hide SliverPaintOrder;
+import 'package:flutter/material.dart';
 import 'package:flutter_color_models/flutter_color_models.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
@@ -149,10 +146,10 @@ abstract class MessageListPageState {
   /// The narrow for this page's message list.
   Narrow get narrow;
 
-  /// The controller for this [MessageListPage]'s compose box,
+  /// The [ComposeBoxState] for this [MessageListPage]'s compose box,
   /// if this [MessageListPage] offers a compose box and it has mounted,
   /// else null.
-  ComposeBoxController? get composeBoxController;
+  ComposeBoxState? get composeBoxState;
 
   /// The active [MessageListView].
   ///
@@ -192,7 +189,7 @@ class _MessageListPageState extends State<MessageListPage> implements MessageLis
   late Narrow narrow;
 
   @override
-  ComposeBoxController? get composeBoxController => _composeBoxKey.currentState?.controller;
+  ComposeBoxState? get composeBoxState => _composeBoxKey.currentState;
   final GlobalKey<ComposeBoxState> _composeBoxKey = GlobalKey();
 
   @override
@@ -466,8 +463,8 @@ class MessageList extends StatefulWidget {
 
 class _MessageListState extends State<MessageList> with PerAccountStoreAwareStateMixin<MessageList> {
   MessageListView? model;
-  final ScrollController scrollController = ScrollController();
-  final ValueNotifier<bool> _scrollToBottomVisibleValue = ValueNotifier<bool>(false);
+  final MessageListScrollController scrollController = MessageListScrollController();
+  final ValueNotifier<bool> _scrollToBottomVisible = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -485,7 +482,7 @@ class _MessageListState extends State<MessageList> with PerAccountStoreAwareStat
   void dispose() {
     model?.dispose();
     scrollController.dispose();
-    _scrollToBottomVisibleValue.dispose();
+    _scrollToBottomVisible.dispose();
     super.dispose();
   }
 
@@ -512,9 +509,9 @@ class _MessageListState extends State<MessageList> with PerAccountStoreAwareStat
 
   void _handleScrollMetrics(ScrollMetrics scrollMetrics) {
     if (scrollMetrics.extentAfter == 0) {
-      _scrollToBottomVisibleValue.value = false;
+      _scrollToBottomVisible.value = false;
     } else {
-      _scrollToBottomVisibleValue.value = true;
+      _scrollToBottomVisible.value = true;
     }
 
     if (scrollMetrics.extentBefore < kFetchMessagesBufferPixels) {
@@ -578,16 +575,25 @@ class _MessageListState extends State<MessageList> with PerAccountStoreAwareStat
                   child: SafeArea(
                     child: ScrollToBottomButton(
                       scrollController: scrollController,
-                      visibleValue: _scrollToBottomVisibleValue))),
+                      visible: _scrollToBottomVisible))),
               ])))));
   }
 
   Widget _buildListView(BuildContext context) {
-    final length = model!.items.length;
     const centerSliverKey = ValueKey('center sliver');
     final zulipLocalizations = ZulipLocalizations.of(context);
 
-    Widget sliver = SliverStickyHeaderList(
+    // The list has two slivers: a top sliver growing upward,
+    // and a bottom sliver growing downward.
+    // Each sliver has some of the items from `model!.items`.
+    const maxBottomItems = 1;
+    final totalItems = model!.items.length;
+    final bottomItems = totalItems <= maxBottomItems ? totalItems : maxBottomItems;
+    final topItems = totalItems - bottomItems;
+
+    // The top sliver has its child 0 as the item just before the
+    // sliver boundary, child 1 as the item before that, and so on.
+    final topSliver = SliverStickyHeaderList(
       headerPlacement: HeaderPlacement.scrollingStart,
       delegate: SliverChildBuilderDelegate(
         // To preserve state across rebuilds for individual [MessageItem]
@@ -606,32 +612,73 @@ class _MessageListState extends State<MessageList> with PerAccountStoreAwareStat
         // have state that needs to be preserved have not been given keys
         // and will not trigger this callback.
         findChildIndexCallback: (Key key) {
-          final valueKey = key as ValueKey<int>;
-          final index = model!.findItemWithMessageId(valueKey.value);
-          if (index == -1) return null;
-          return length - 1 - (index - 3);
+          final messageId = (key as ValueKey<int>).value;
+          final itemIndex = model!.findItemWithMessageId(messageId);
+          if (itemIndex == -1) return null;
+          final childIndex = totalItems - 1 - (itemIndex + bottomItems);
+          if (childIndex < 0) return null;
+          return childIndex;
         },
-        childCount: length + 3,
-        (context, i) {
+        childCount: topItems,
+        (context, childIndex) {
+          final itemIndex = totalItems - 1 - (childIndex + bottomItems);
+          final data = model!.items[itemIndex];
+          final item = _buildItem(zulipLocalizations, data);
+          return item;
+        }));
+
+    // The bottom sliver has its child 0 as the item just after the
+    // sliver boundary (just after child 0 of the top sliver),
+    // its child 1 as the next item after that, and so on.
+    Widget bottomSliver = SliverStickyHeaderList(
+      key: centerSliverKey,
+      headerPlacement: HeaderPlacement.scrollingStart,
+      delegate: SliverChildBuilderDelegate(
+        // To preserve state across rebuilds for individual [MessageItem]
+        // widgets as the size of [MessageListView.items] changes we need
+        // to match old widgets by their key to their new position in
+        // the list.
+        //
+        // The keys are of type [ValueKey] with a value of [Message.id]
+        // and here we use a O(log n) binary search method. This could
+        // be improved but for now it only triggers for materialized
+        // widgets. As a simple test, flinging through All Messages in
+        // CZO on a Pixel 5, this only runs about 10 times per rebuild
+        // and the timing for each call is <100 microseconds.
+        //
+        // Non-message items (e.g., start and end markers) that do not
+        // have state that needs to be preserved have not been given keys
+        // and will not trigger this callback.
+        findChildIndexCallback: (Key key) {
+          final messageId = (key as ValueKey<int>).value;
+          final itemIndex = model!.findItemWithMessageId(messageId);
+          if (itemIndex == -1) return null;
+          final childIndex = itemIndex - topItems;
+          if (childIndex < 0) return null;
+          return childIndex;
+        },
+        childCount: bottomItems + 3,
+        (context, childIndex) {
           // To reinforce that the end of the feed has been reached:
           //   https://chat.zulip.org/#narrow/stream/243-mobile-team/topic/flutter.3A.20Mark-as-read/near/1680603
-          if (i == 0) return const SizedBox(height: 36);
+          if (childIndex == bottomItems + 2) return const SizedBox(height: 36);
 
-          if (i == 1) return MarkAsReadWidget(narrow: widget.narrow);
+          if (childIndex == bottomItems + 1) return MarkAsReadWidget(narrow: widget.narrow);
 
-          if (i == 2) return TypingStatusWidget(narrow: widget.narrow);
+          if (childIndex == bottomItems) return TypingStatusWidget(narrow: widget.narrow);
 
-          final data = model!.items[length - 1 - (i - 3)];
-          return _buildItem(zulipLocalizations, data, i);
+          final itemIndex = topItems + childIndex;
+          final data = model!.items[itemIndex];
+          return _buildItem(zulipLocalizations, data);
         }));
 
     if (!ComposeBox.hasComposeBox(widget.narrow)) {
       // TODO(#311) If we have a bottom nav, it will pad the bottom inset,
       //   and this can be removed; also remove mention in MessageList dartdoc
-      sliver = SliverSafeArea(sliver: sliver);
+      bottomSliver = SliverSafeArea(key: bottomSliver.key, sliver: bottomSliver);
     }
 
-    return CustomPaintOrderScrollView(
+    return MessageListScrollView(
       // TODO: Offer `ScrollViewKeyboardDismissBehavior.interactive` (or
       //   similar) if that is ever offered:
       //     https://github.com/flutter/flutter/issues/57609#issuecomment-1355340849
@@ -644,22 +691,17 @@ class _MessageListState extends State<MessageList> with PerAccountStoreAwareStat
       },
 
       controller: scrollController,
-      semanticChildCount: length + 2,
-      anchor: 1.0,
+      semanticChildCount: totalItems, // TODO(#537): what's the right value for this?
       center: centerSliverKey,
       paintOrder: SliverPaintOrder.firstIsTop,
 
       slivers: [
-        sliver,
-
-        // This is a trivial placeholder that occupies no space.  Its purpose is
-        // to have the key that's passed to [ScrollView.center], and so to cause
-        // the above [SliverStickyHeaderList] to run from bottom to top.
-        const SliverToBoxAdapter(key: centerSliverKey),
+        topSliver,
+        bottomSliver,
       ]);
   }
 
-  Widget _buildItem(ZulipLocalizations zulipLocalizations, MessageListItem data, int i) {
+  Widget _buildItem(ZulipLocalizations zulipLocalizations, MessageListItem data) {
     switch (data) {
       case MessageListHistoryStartItem():
         return Center(
@@ -685,33 +727,27 @@ class _MessageListState extends State<MessageList> with PerAccountStoreAwareStat
         return MessageItem(
           key: ValueKey(data.message.id),
           header: header,
-          trailingWhitespace: i == 1 ? 8 : 11,
+          trailingWhitespace: 11,
           item: data);
     }
   }
 }
 
 class ScrollToBottomButton extends StatelessWidget {
-  const ScrollToBottomButton({super.key, required this.scrollController, required this.visibleValue});
+  const ScrollToBottomButton({super.key, required this.scrollController, required this.visible});
 
-  final ValueNotifier<bool> visibleValue;
-  final ScrollController scrollController;
+  final ValueNotifier<bool> visible;
+  final MessageListScrollController scrollController;
 
-  Future<void> _navigateToBottom() {
-    final distance = scrollController.position.pixels;
-    final durationMsAtSpeedLimit = (1000 * distance / 8000).ceil();
-    final durationMs = max(300, durationMsAtSpeedLimit);
-    return scrollController.animateTo(
-      0,
-      duration: Duration(milliseconds: durationMs),
-      curve: Curves.ease);
+  void _scrollToBottom() {
+    scrollController.position.scrollToEnd();
   }
 
   @override
   Widget build(BuildContext context) {
     final zulipLocalizations = ZulipLocalizations.of(context);
     return ValueListenableBuilder<bool>(
-      valueListenable: visibleValue,
+      valueListenable: visible,
       builder: (BuildContext context, bool value, Widget? child) {
         return (value && child != null) ? child : const SizedBox.shrink();
       },
@@ -722,7 +758,7 @@ class ScrollToBottomButton extends StatelessWidget {
         iconSize: 40,
         // Web has the same color in light and dark mode.
         color: const HSLColor.fromAHSL(0.5, 240, 0.96, 0.68).toColor(),
-        onPressed: _navigateToBottom));
+        onPressed: _scrollToBottom));
   }
 }
 
@@ -901,15 +937,19 @@ class _MarkAsReadAnimationState extends State<MarkAsReadAnimation> {
 class RecipientHeader extends StatelessWidget {
   const RecipientHeader({super.key, required this.message, required this.narrow});
 
-  final Message message;
+  final MessageBase message;
   final Narrow narrow;
 
   @override
   Widget build(BuildContext context) {
     final message = this.message;
     return switch (message) {
-      StreamMessage() => StreamMessageRecipientHeader(message: message, narrow: narrow),
-      DmMessage() => DmRecipientHeader(message: message, narrow: narrow),
+      MessageBase<StreamConversation>() =>
+        StreamMessageRecipientHeader(message: message, narrow: narrow),
+      MessageBase<DmConversation>() =>
+        DmRecipientHeader(message: message, narrow: narrow),
+      MessageBase<Conversation>() =>
+        throw StateError('Bad concrete subclass of MessageBase'),
     };
   }
 }
@@ -917,7 +957,7 @@ class RecipientHeader extends StatelessWidget {
 class DateSeparator extends StatelessWidget {
   const DateSeparator({super.key, required this.message});
 
-  final Message message;
+  final MessageBase message;
 
   @override
   Widget build(BuildContext context) {
@@ -1027,7 +1067,7 @@ class StreamMessageRecipientHeader extends StatelessWidget {
     required this.narrow,
   });
 
-  final StreamMessage message;
+  final MessageBase<StreamConversation> message;
   final Narrow narrow;
 
   static bool _containsDifferentChannels(Narrow narrow) {
@@ -1053,11 +1093,12 @@ class StreamMessageRecipientHeader extends StatelessWidget {
     final designVariables = DesignVariables.of(context);
     final zulipLocalizations = ZulipLocalizations.of(context);
 
-    final topic = message.topic;
+    final streamId = message.conversation.streamId;
+    final topic = message.conversation.topic;
 
     final messageListTheme = MessageListTheme.of(context);
 
-    final subscription = store.subscriptions[message.streamId];
+    final subscription = store.subscriptions[streamId];
     final Color backgroundColor;
     final Color iconColor;
     if (subscription != null) {
@@ -1073,16 +1114,16 @@ class StreamMessageRecipientHeader extends StatelessWidget {
     if (!_containsDifferentChannels(narrow)) {
       streamWidget = const SizedBox(width: 16);
     } else {
-      final stream = store.streams[message.streamId];
+      final stream = store.streams[streamId];
       final streamName = stream?.name
-        ?? message.displayRecipient
+        ?? message.conversation.displayRecipient
         ?? zulipLocalizations.unknownChannelName; // TODO(log)
 
       streamWidget = GestureDetector(
         onTap: () => Navigator.push(context,
           MessageListPage.buildRoute(context: context,
-            narrow: ChannelNarrow(message.streamId))),
-        onLongPress: () => showChannelActionSheet(context, channelId: message.streamId),
+            narrow: ChannelNarrow(streamId))),
+        onLongPress: () => showChannelActionSheet(context, channelId: streamId),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -1130,7 +1171,7 @@ class StreamMessageRecipientHeader extends StatelessWidget {
           Icon(size: 14, color: designVariables.title.withFadedAlpha(0.5),
             // A null [Icon.icon] makes a blank space.
             iconDataForTopicVisibilityPolicy(
-              store.topicVisibilityPolicy(message.streamId, topic))),
+              store.topicVisibilityPolicy(streamId, topic))),
         ]));
 
     return GestureDetector(
@@ -1143,7 +1184,7 @@ class StreamMessageRecipientHeader extends StatelessWidget {
             MessageListPage.buildRoute(context: context,
               narrow: TopicNarrow.ofMessage(message))),
       onLongPress: () => showTopicActionSheet(context,
-        channelId: message.streamId,
+        channelId: streamId,
         topic: topic,
         someMessageIdInTopic: message.id),
       child: ColoredBox(
@@ -1168,7 +1209,7 @@ class DmRecipientHeader extends StatelessWidget {
     required this.narrow,
   });
 
-  final DmMessage message;
+  final MessageBase<DmConversation> message;
   final Narrow narrow;
 
   @override
@@ -1176,12 +1217,13 @@ class DmRecipientHeader extends StatelessWidget {
     final zulipLocalizations = ZulipLocalizations.of(context);
     final store = PerAccountStoreWidget.of(context);
     final String title;
-    if (message.allRecipientIds.length > 1) {
-      title = zulipLocalizations.messageListGroupYouAndOthers(message.allRecipientIds
-        .where((id) => id != store.selfUserId)
-        .map(store.userDisplayName)
-        .sorted()
-        .join(", "));
+    if (message.conversation.allRecipientIds.length > 1) {
+      title = zulipLocalizations.messageListGroupYouAndOthers(
+        message.conversation.allRecipientIds
+          .where((id) => id != store.selfUserId)
+          .map(store.userDisplayName)
+          .sorted()
+          .join(", "));
     } else {
       title = zulipLocalizations.messageListGroupYouWithYourself;
     }
@@ -1233,7 +1275,7 @@ TextStyle recipientHeaderTextStyle(BuildContext context, {FontStyle? fontStyle})
 class RecipientHeaderDate extends StatelessWidget {
   const RecipientHeaderDate({super.key, required this.message});
 
-  final Message message;
+  final MessageBase message;
 
   @override
   Widget build(BuildContext context) {

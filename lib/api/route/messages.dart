@@ -67,6 +67,7 @@ Future<GetMessageResult> getMessage(ApiConnection connection, {
 @JsonSerializable(fieldRename: FieldRename.snake)
 class GetMessageResult {
   // final String rawContent; // deprecated; ignore
+  @JsonKey(fromJson: Message.fromJson)
   final Message message;
 
   GetMessageResult({
@@ -138,6 +139,7 @@ class GetMessagesResult {
   final bool foundOldest;
   final bool foundAnchor;
   final bool historyLimited;
+  @JsonKey(fromJson: _messagesFromJson)
   final List<Message> messages;
 
   GetMessagesResult({
@@ -148,6 +150,12 @@ class GetMessagesResult {
     required this.historyLimited,
     required this.messages,
   });
+
+  static List<Message> _messagesFromJson(Object json) {
+    return (json as List<dynamic>)
+      .map((e) => Message.fromJson(e as Map<String, dynamic>))
+      .toList();
+  }
 
   factory GetMessagesResult.fromJson(Map<String, dynamic> json) =>
       _$GetMessagesResultFromJson(json);
@@ -267,6 +275,7 @@ Future<UpdateMessageResult> updateMessage(
   bool? sendNotificationToOldThread,
   bool? sendNotificationToNewThread,
   String? content,
+  String? prevContentSha256,
   int? streamId,
 }) {
   return connection.patch('updateMessage', UpdateMessageResult.fromJson, 'messages/$messageId', {
@@ -275,6 +284,7 @@ Future<UpdateMessageResult> updateMessage(
     if (sendNotificationToOldThread != null) 'send_notification_to_old_thread': sendNotificationToOldThread,
     if (sendNotificationToNewThread != null) 'send_notification_to_new_thread': sendNotificationToNewThread,
     if (content != null) 'content': RawParameter(content),
+    if (prevContentSha256 != null) 'prev_content_sha256': RawParameter(prevContentSha256),
     if (streamId != null) 'stream_id': streamId,
   });
 }

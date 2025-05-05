@@ -338,6 +338,7 @@ class CorePerAccountStore {
   CorePerAccountStore._({
     required GlobalStore globalStore,
     required this.connection,
+    required this.queueId,
     required this.accountId,
     required this.selfUserId,
   }) : _globalStore = globalStore,
@@ -345,6 +346,7 @@ class CorePerAccountStore {
 
   final GlobalStore _globalStore;
   final ApiConnection connection; // TODO(#135): update zulipFeatureLevel with events
+  final String queueId;
   final int accountId;
 
   // This isn't strictly needed as a field; it could be a getter
@@ -369,6 +371,8 @@ abstract class PerAccountStoreBase {
   GlobalStore get _globalStore => _core._globalStore;
 
   ApiConnection get connection => _core.connection;
+
+  String get queueId => _core.queueId;
 
   ////////////////////////////////
   // Data attached to the realm or the server.
@@ -456,18 +460,20 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
     final core = CorePerAccountStore._(
       globalStore: globalStore,
       connection: connection,
+      queueId: queueId,
       accountId: accountId,
       selfUserId: account.userId,
     );
     final channels = ChannelStoreImpl(initialSnapshot: initialSnapshot);
     return PerAccountStore._(
       core: core,
-      queueId: queueId,
       realmWildcardMentionPolicy: initialSnapshot.realmWildcardMentionPolicy,
       realmMandatoryTopics: initialSnapshot.realmMandatoryTopics,
       realmWaitingPeriodThreshold: initialSnapshot.realmWaitingPeriodThreshold,
       maxFileUploadSizeMib: initialSnapshot.maxFileUploadSizeMib,
       realmEmptyTopicDisplayName: initialSnapshot.realmEmptyTopicDisplayName,
+      realmAllowMessageEditing: initialSnapshot.realmAllowMessageEditing,
+      realmMessageContentEditLimitSeconds: initialSnapshot.realmMessageContentEditLimitSeconds,
       realmDefaultExternalAccounts: initialSnapshot.realmDefaultExternalAccounts,
       customProfileFields: _sortCustomProfileFields(initialSnapshot.customProfileFields),
       emailAddressVisibility: initialSnapshot.emailAddressVisibility,
@@ -500,12 +506,13 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
 
   PerAccountStore._({
     required super.core,
-    required this.queueId,
     required this.realmWildcardMentionPolicy,
     required this.realmMandatoryTopics,
     required this.realmWaitingPeriodThreshold,
     required this.maxFileUploadSizeMib,
     required String? realmEmptyTopicDisplayName,
+    required this.realmAllowMessageEditing,
+    required this.realmMessageContentEditLimitSeconds,
     required this.realmDefaultExternalAccounts,
     required this.customProfileFields,
     required this.emailAddressVisibility,
@@ -531,7 +538,6 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
   ////////////////////////////////
   // Where data comes from in the first place.
 
-  final String queueId;
   UpdateMachine? get updateMachine => _updateMachine;
   UpdateMachine? _updateMachine;
   set updateMachine(UpdateMachine? value) {
@@ -561,6 +567,8 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
   final bool realmMandatoryTopics;  // TODO(#668): update this realm setting
   /// For docs, please see [InitialSnapshot.realmWaitingPeriodThreshold].
   final int realmWaitingPeriodThreshold;  // TODO(#668): update this realm setting
+  final bool realmAllowMessageEditing; // TODO(#668): update this realm setting
+  final int? realmMessageContentEditLimitSeconds; // TODO(#668): update this realm setting
   final int maxFileUploadSizeMib; // No event for this.
 
   /// The display name to use for empty topics.
@@ -729,10 +737,35 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
   void unregisterMessageList(MessageListView view) =>
     _messages.unregisterMessageList(view);
   @override
+  Future<void> sendMessage({required MessageDestination destination, required String content}) {
+    assert(!_disposed);
+    return _messages.sendMessage(destination: destination, content: content);
+  }
+  @override
   void reconcileMessages(List<Message> messages) {
     _messages.reconcileMessages(messages);
     // TODO(#649) notify [unreads] of the just-fetched messages
     // TODO(#650) notify [recentDmConversationsView] of the just-fetched messages
+  }
+  @override
+  bool? getEditMessageErrorStatus(int messageId) {
+    assert(!_disposed);
+    return _messages.getEditMessageErrorStatus(messageId);
+  }
+  @override
+  void editMessage({
+    required int messageId,
+    required String originalRawContent,
+    required String newContent,
+  }) {
+    assert(!_disposed);
+    return _messages.editMessage(messageId: messageId,
+      originalRawContent: originalRawContent, newContent: newContent);
+  }
+  @override
+  String takeFailedMessageEdit(int messageId) {
+    assert(!_disposed);
+    return _messages.takeFailedMessageEdit(messageId);
   }
 
   @override
@@ -894,12 +927,6 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
       case UnexpectedEvent():
         assert(debugLog("server event: ${jsonEncode(event.toJson())}")); // TODO log better
     }
-  }
-
-  @override
-  Future<void> sendMessage({required MessageDestination destination, required String content}) {
-    assert(!_disposed);
-    return _messages.sendMessage(destination: destination, content: content);
   }
 
   static List<CustomProfileField> _sortCustomProfileFields(List<CustomProfileField> initialCustomProfileFields) {
