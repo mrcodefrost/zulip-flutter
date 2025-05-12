@@ -83,6 +83,13 @@ abstract class ZulipBinding {
   /// a widget tree may not exist.
   Future<GlobalStore> getGlobalStore();
 
+  /// Get the app's singleton [GlobalStore] if already loaded, else null.
+  ///
+  /// Where possible, use [GlobalStoreWidget.of] to get access to a [GlobalStore].
+  /// Use this method only in contexts where getting access to a [BuildContext]
+  /// is inconvenient.
+  GlobalStore? getGlobalStoreSync();
+
   /// Like [getGlobalStore], but assert this method was not previously called.
   ///
   /// This is used by the implementation of [GlobalStoreWidget],
@@ -303,10 +310,12 @@ class LinuxDeviceInfo implements BaseDeviceInfo {
 class PackageInfo {
   final String version;
   final String buildNumber;
+  final String packageName;
 
   const PackageInfo({
     required this.version,
     required this.buildNumber,
+    required this.packageName,
   });
 }
 
@@ -333,8 +342,17 @@ class LiveZulipBinding extends ZulipBinding {
   }
 
   @override
-  Future<GlobalStore> getGlobalStore() => _globalStore ??= LiveGlobalStore.load();
-  Future<GlobalStore>? _globalStore;
+  Future<GlobalStore> getGlobalStore() {
+    return _globalStoreFuture ??= LiveGlobalStore.load().then((store) {
+      return _globalStore = store;
+    });
+  }
+
+  @override
+  GlobalStore? getGlobalStoreSync() => _globalStore;
+
+  Future<GlobalStore>? _globalStoreFuture;
+  GlobalStore? _globalStore;
 
   @override
   Future<GlobalStore> getGlobalStoreUniquely() {
@@ -411,6 +429,7 @@ class LiveZulipBinding extends ZulipBinding {
       _syncPackageInfo = PackageInfo(
         version: info.version,
         buildNumber: info.buildNumber,
+        packageName: info.packageName,
       );
     } catch (e, st) {
       assert(debugLog('Failed to prefetch package info: $e\n$st')); // TODO(log)

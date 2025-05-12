@@ -360,37 +360,39 @@ void main() {
     });
   });
 
-  test('MessageEvent', () async {
-    final stream = eg.stream();
-    await prepare(narrow: ChannelNarrow(stream.streamId));
-    await prepareMessages(foundOldest: true, messages:
-      List.generate(30, (i) => eg.streamMessage(stream: stream)));
+  group('MessageEvent', () {
+    test('in narrow', () async {
+      final stream = eg.stream();
+      await prepare(narrow: ChannelNarrow(stream.streamId));
+      await prepareMessages(foundOldest: true, messages:
+        List.generate(30, (i) => eg.streamMessage(stream: stream)));
 
-    check(model).messages.length.equals(30);
-    await store.addMessage(eg.streamMessage(stream: stream));
-    checkNotifiedOnce();
-    check(model).messages.length.equals(31);
-  });
+      check(model).messages.length.equals(30);
+      await store.addMessage(eg.streamMessage(stream: stream));
+      checkNotifiedOnce();
+      check(model).messages.length.equals(31);
+    });
 
-  test('MessageEvent, not in narrow', () async {
-    final stream = eg.stream();
-    await prepare(narrow: ChannelNarrow(stream.streamId));
-    await prepareMessages(foundOldest: true, messages:
-      List.generate(30, (i) => eg.streamMessage(stream: stream)));
+    test('not in narrow', () async {
+      final stream = eg.stream();
+      await prepare(narrow: ChannelNarrow(stream.streamId));
+      await prepareMessages(foundOldest: true, messages:
+        List.generate(30, (i) => eg.streamMessage(stream: stream)));
 
-    check(model).messages.length.equals(30);
-    final otherStream = eg.stream();
-    await store.addMessage(eg.streamMessage(stream: otherStream));
-    checkNotNotified();
-    check(model).messages.length.equals(30);
-  });
+      check(model).messages.length.equals(30);
+      final otherStream = eg.stream();
+      await store.addMessage(eg.streamMessage(stream: otherStream));
+      checkNotNotified();
+      check(model).messages.length.equals(30);
+    });
 
-  test('MessageEvent, before fetch', () async {
-    final stream = eg.stream();
-    await prepare(narrow: ChannelNarrow(stream.streamId));
-    await store.addMessage(eg.streamMessage(stream: stream));
-    checkNotNotified();
-    check(model).fetched.isFalse();
+    test('before fetch', () async {
+      final stream = eg.stream();
+      await prepare(narrow: ChannelNarrow(stream.streamId));
+      await store.addMessage(eg.streamMessage(stream: stream));
+      checkNotNotified();
+      check(model).fetched.isFalse();
+    });
   });
 
   group('UserTopicEvent', () {
@@ -526,7 +528,7 @@ void main() {
     test('unmute a topic -> refetch from scratch', () => awaitFakeAsync((async) async {
       await prepare(narrow: const CombinedFeedNarrow());
       await prepareMutes(true);
-      final messages = [
+      final messages = <Message>[
         eg.dmMessage(id: 1, from: eg.otherUser, to: [eg.selfUser]),
         eg.streamMessage(id: 2, stream: stream, topic: topic),
       ];
@@ -1450,28 +1452,28 @@ void main() {
         .deepEquals(expected..insertAll(0, [101, 103, 105]));
 
       // … and on MessageEvent.
-      await store.handleEvent(eg.messageEvent(
-        eg.streamMessage(id: 301, stream: stream1, topic: 'A')));
+      await store.addMessage(
+        eg.streamMessage(id: 301, stream: stream1, topic: 'A'));
       checkNotifiedOnce();
       check(model.messages.map((m) => m.id)).deepEquals(expected..add(301));
 
-      await store.handleEvent(eg.messageEvent(
-        eg.streamMessage(id: 302, stream: stream1, topic: 'B')));
+      await store.addMessage(
+        eg.streamMessage(id: 302, stream: stream1, topic: 'B'));
       checkNotNotified();
       check(model.messages.map((m) => m.id)).deepEquals(expected);
 
-      await store.handleEvent(eg.messageEvent(
-        eg.streamMessage(id: 303, stream: stream2, topic: 'C')));
+      await store.addMessage(
+        eg.streamMessage(id: 303, stream: stream2, topic: 'C'));
       checkNotifiedOnce();
       check(model.messages.map((m) => m.id)).deepEquals(expected..add(303));
 
-      await store.handleEvent(eg.messageEvent(
-        eg.streamMessage(id: 304, stream: stream2, topic: 'D')));
+      await store.addMessage(
+        eg.streamMessage(id: 304, stream: stream2, topic: 'D'));
       checkNotNotified();
       check(model.messages.map((m) => m.id)).deepEquals(expected);
 
-      await store.handleEvent(eg.messageEvent(
-        eg.dmMessage(id: 305, from: eg.otherUser, to: [eg.selfUser])));
+      await store.addMessage(
+        eg.dmMessage(id: 305, from: eg.otherUser, to: [eg.selfUser]));
       checkNotifiedOnce();
       check(model.messages.map((m) => m.id)).deepEquals(expected..add(305));
     });
@@ -1507,18 +1509,18 @@ void main() {
         .deepEquals(expected..insertAll(0, [101, 102]));
 
       // … and on MessageEvent.
-      await store.handleEvent(eg.messageEvent(
-        eg.streamMessage(id: 301, stream: stream, topic: 'A')));
+      await store.addMessage(
+        eg.streamMessage(id: 301, stream: stream, topic: 'A'));
       checkNotifiedOnce();
       check(model.messages.map((m) => m.id)).deepEquals(expected..add(301));
 
-      await store.handleEvent(eg.messageEvent(
-        eg.streamMessage(id: 302, stream: stream, topic: 'B')));
+      await store.addMessage(
+        eg.streamMessage(id: 302, stream: stream, topic: 'B'));
       checkNotifiedOnce();
       check(model.messages.map((m) => m.id)).deepEquals(expected..add(302));
 
-      await store.handleEvent(eg.messageEvent(
-        eg.streamMessage(id: 303, stream: stream, topic: 'C')));
+      await store.addMessage(
+        eg.streamMessage(id: 303, stream: stream, topic: 'C'));
       checkNotNotified();
       check(model.messages.map((m) => m.id)).deepEquals(expected);
     });
@@ -1549,8 +1551,8 @@ void main() {
         .deepEquals(expected..insertAll(0, [101]));
 
       // … and on MessageEvent.
-      await store.handleEvent(eg.messageEvent(
-        eg.streamMessage(id: 301, stream: stream, topic: 'A')));
+      await store.addMessage(
+        eg.streamMessage(id: 301, stream: stream, topic: 'A'));
       checkNotifiedOnce();
       check(model.messages.map((m) => m.id)).deepEquals(expected..add(301));
     });
@@ -1589,7 +1591,7 @@ void main() {
       // … and on MessageEvent.
       final messages = getMessages(301);
       for (var i = 0; i < 3; i += 1) {
-        await store.handleEvent(eg.messageEvent(messages[i]));
+        await store.addMessage(messages[i]);
         checkNotifiedOnce();
         check(model.messages.map((m) => m.id)).deepEquals(expected..add(301 + i));
       }
@@ -1627,7 +1629,7 @@ void main() {
       // … and on MessageEvent.
       final messages = getMessages(301);
       for (var i = 0; i < 2; i += 1) {
-        await store.handleEvent(eg.messageEvent(messages[i]));
+        await store.addMessage(messages[i]);
         checkNotifiedOnce();
         check(model.messages.map((m) => m.id)).deepEquals(expected..add(301 + i));
       }
@@ -1718,11 +1720,11 @@ void main() {
     checkNotified(count: 2);
 
     // Then test MessageEvent, where a new header is needed…
-    await store.handleEvent(eg.messageEvent(streamMessage(13)));
+    await store.addMessage(streamMessage(13));
     checkNotifiedOnce();
 
     // … and where it's not.
-    await store.handleEvent(eg.messageEvent(streamMessage(14)));
+    await store.addMessage(streamMessage(14));
     checkNotifiedOnce();
 
     // Then test UpdateMessageEvent edits, where a header is and remains needed…
@@ -1994,18 +1996,22 @@ void checkInvariants(MessageListView model) {
 }
 
 extension MessageListRecipientHeaderItemChecks on Subject<MessageListRecipientHeaderItem> {
-  Subject<Message> get message => has((x) => x.message, 'message');
+  Subject<MessageBase> get message => has((x) => x.message, 'message');
 }
 
 extension MessageListDateSeparatorItemChecks on Subject<MessageListDateSeparatorItem> {
-  Subject<Message> get message => has((x) => x.message, 'message');
+  Subject<MessageBase> get message => has((x) => x.message, 'message');
+}
+
+extension MessageListMessageBaseItemChecks on Subject<MessageListMessageBaseItem> {
+  Subject<MessageBase> get message => has((x) => x.message, 'message');
+  Subject<ZulipMessageContent> get content => has((x) => x.content, 'content');
+  Subject<bool> get showSender => has((x) => x.showSender, 'showSender');
+  Subject<bool> get isLastInBlock => has((x) => x.isLastInBlock, 'isLastInBlock');
 }
 
 extension MessageListMessageItemChecks on Subject<MessageListMessageItem> {
   Subject<Message> get message => has((x) => x.message, 'message');
-  Subject<ZulipMessageContent> get content => has((x) => x.content, 'content');
-  Subject<bool> get showSender => has((x) => x.showSender, 'showSender');
-  Subject<bool> get isLastInBlock => has((x) => x.isLastInBlock, 'isLastInBlock');
 }
 
 extension MessageListViewChecks on Subject<MessageListView> {

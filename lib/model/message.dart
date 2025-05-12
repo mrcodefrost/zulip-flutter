@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
+
 import '../api/model/events.dart';
 import '../api/model/model.dart';
 import '../api/route/messages.dart';
@@ -35,6 +37,40 @@ mixin MessageStore {
   /// All [Message] objects in the resulting list will be present in
   /// [this.messages].
   void reconcileMessages(List<Message> messages);
+
+  /// Whether the current edit request for the given message, if any, has failed.
+  ///
+  /// Will be null if there is no current edit request.
+  /// Will be false if the current request hasn't failed
+  /// and the update-message event hasn't arrived.
+  bool? getEditMessageErrorStatus(int messageId);
+
+  /// Edit a message's content, via a request to the server.
+  ///
+  /// Should only be called when there is no current edit request for [messageId],
+  /// i.e., [getEditMessageErrorStatus] returns null for [messageId].
+  ///
+  /// See also:
+  ///   * [getEditMessageErrorStatus]
+  ///   * [takeFailedMessageEdit]
+  void editMessage({
+    required int messageId,
+    required String originalRawContent,
+    required String newContent,
+  });
+
+  /// Forgets the failed edit request and returns the attempted new content.
+  ///
+  /// Should only be called when there is a failed request,
+  /// per [getEditMessageErrorStatus].
+  String takeFailedMessageEdit(int messageId);
+}
+
+class _EditMessageRequestStatus {
+  _EditMessageRequestStatus({required this.hasError, required this.newContent});
+
+  bool hasError;
+  final String newContent;
 }
 
 class MessageStoreImpl extends PerAccountStoreBase with MessageStore {
@@ -61,6 +97,18 @@ class MessageStoreImpl extends PerAccountStoreBase with MessageStore {
   void unregisterMessageList(MessageListView view) {
     final removed = _messageListViews.remove(view);
     assert(removed);
+  }
+
+  void _notifyMessageListViewsForOneMessage(int messageId) {
+    for (final view in _messageListViews) {
+      view.notifyListenersIfMessagePresent(messageId);
+    }
+  }
+
+  void _notifyMessageListViews(Iterable<int> messageIds) {
+    for (final view in _messageListViews) {
+      view.notifyListenersIfAnyMessagePresent(messageIds);
+    }
   }
 
   void reassemble() {
@@ -120,6 +168,60 @@ class MessageStoreImpl extends PerAccountStoreBase with MessageStore {
     }
   }
 
+  @override
+  bool? getEditMessageErrorStatus(int messageId) =>
+    _editMessageRequests[messageId]?.hasError;
+
+  final Map<int, _EditMessageRequestStatus> _editMessageRequests = {};
+
+  @override
+  void editMessage({
+    required int messageId,
+    required String originalRawContent,
+    required String newContent,
+  }) async {
+    if (_editMessageRequests.containsKey(messageId)) {
+      throw StateError('an edit request is already in progress');
+    }
+
+    _editMessageRequests[messageId] = _EditMessageRequestStatus(
+      hasError: false, newContent: newContent);
+    _notifyMessageListViewsForOneMessage(messageId);
+    try {
+      await updateMessage(connection,
+        messageId: messageId,
+        content: newContent,
+        prevContentSha256: sha256.convert(utf8.encode(originalRawContent)).toString());
+      // On success, we'll clear the status from _editMessageRequests
+      // when we get the event.
+    } catch (e) {
+      // TODO(log) if e is something unexpected
+
+      final status = _editMessageRequests[messageId];
+      if (status == null) {
+        // The event actually arrived before this request failed
+        // (can happen with network issues).
+        // Or, the message was deleted.
+        return;
+      }
+      status.hasError = true;
+      _notifyMessageListViewsForOneMessage(messageId);
+    }
+  }
+
+  @override
+  String takeFailedMessageEdit(int messageId) {
+    final status = _editMessageRequests.remove(messageId);
+    _notifyMessageListViewsForOneMessage(messageId);
+    if (status == null) {
+      throw StateError('called takeFailedMessageEdit, but no edit');
+    }
+    if (!status.hasError) {
+      throw StateError("called takeFailedMessageEdit, but edit hasn't failed");
+    }
+    return status.newContent;
+  }
+
   void handleUserTopicEvent(UserTopicEvent event) {
     for (final view in _messageListViews) {
       view.handleUserTopicEvent(event);
@@ -142,9 +244,7 @@ class MessageStoreImpl extends PerAccountStoreBase with MessageStore {
     _handleUpdateMessageEventTimestamp(event);
     _handleUpdateMessageEventContent(event);
     _handleUpdateMessageEventMove(event);
-    for (final view in _messageListViews) {
-      view.notifyListenersIfAnyMessagePresent(event.messageIds);
-    }
+    _notifyMessageListViews(event.messageIds);
   }
 
   void _handleUpdateMessageEventTimestamp(UpdateMessageEvent event) {
@@ -173,6 +273,12 @@ class MessageStoreImpl extends PerAccountStoreBase with MessageStore {
       // The message is guaranteed to be edited.
       // See also: https://zulip.com/api/get-events#update_message
       message.editState = MessageEditState.edited;
+
+      // Clear the edit-message progress feedback.
+      // This makes a rare bug where we might clear the feedback too early,
+      // if the user raced with themself to edit the same message
+      // from multiple clients.
+      _editMessageRequests.remove(message.id);
     }
     if (event.renderedContent != null) {
       assert(message.contentType == 'text/html',
@@ -211,14 +317,14 @@ class MessageStoreImpl extends PerAccountStoreBase with MessageStore {
       }
 
       if (newStreamId != origStreamId) {
-        message.streamId = newStreamId;
-        // See [StreamMessage.displayRecipient] on why the invalidation is
+        message.conversation.streamId = newStreamId;
+        // See [StreamConversation.displayRecipient] on why the invalidation is
         // needed.
-        message.displayRecipient = null;
+        message.conversation.displayRecipient = null;
       }
 
       if (newTopic != origTopic) {
-        message.topic = newTopic;
+        message.conversation.topic = newTopic;
       }
 
       if (!wasResolveOrUnresolve
@@ -235,6 +341,7 @@ class MessageStoreImpl extends PerAccountStoreBase with MessageStore {
   void handleDeleteMessageEvent(DeleteMessageEvent event) {
     for (final messageId in event.messageIds) {
       messages.remove(messageId);
+      _editMessageRequests.remove(messageId);
     }
     for (final view in _messageListViews) {
       view.handleDeleteMessageEvent(event);
@@ -268,17 +375,15 @@ class MessageStoreImpl extends PerAccountStoreBase with MessageStore {
           : message.flags.remove(event.flag);
       }
       if (anyMessageFound) {
-        for (final view in _messageListViews) {
-          view.notifyListenersIfAnyMessagePresent(event.messages);
-          // TODO(#818): Support MentionsNarrow live-updates when handling
-          //   @-mention flags.
+        // TODO(#818): Support MentionsNarrow live-updates when handling
+        //   @-mention flags.
 
-          // To make it easier to re-star a message, we opt-out from supporting
-          // live-updates when starred flag is removed.
-          //
-          // TODO: Support StarredMessagesNarrow live-updates when starred flag
-          //   is added.
-        }
+        // To make it easier to re-star a message, we opt-out from supporting
+        // live-updates when starred flag is removed.
+        //
+        // TODO: Support StarredMessagesNarrow live-updates when starred flag
+        //   is added.
+        _notifyMessageListViews(event.messages);
       }
     }
   }
@@ -305,10 +410,7 @@ class MessageStoreImpl extends PerAccountStoreBase with MessageStore {
           userId: event.userId,
         );
     }
-
-    for (final view in _messageListViews) {
-      view.notifyListenersIfMessagePresent(event.messageId);
-    }
+    _notifyMessageListViewsForOneMessage(event.messageId);
   }
 
   void handleSubmessageEvent(SubmessageEvent event) {
