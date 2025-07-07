@@ -21,6 +21,20 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get aboutPageTapToView => 'Tap to view';
 
   @override
+  String get upgradeWelcomeDialogTitle => 'Welcome to the new Zulip app!';
+
+  @override
+  String get upgradeWelcomeDialogMessage =>
+      'You’ll find a familiar experience in a faster, sleeker package.';
+
+  @override
+  String get upgradeWelcomeDialogLinkText =>
+      'Check out the announcement blog post!';
+
+  @override
+  String get upgradeWelcomeDialogDismiss => 'Let\'s go';
+
+  @override
   String get chooseAccountPageTitle => 'Choose account';
 
   @override
@@ -44,7 +58,8 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get logOutConfirmationDialogTitle => 'Log out?';
 
   @override
-  String get logOutConfirmationDialogMessage => 'To use this account in the future, you will have to re-enter the URL for your organization and your account information.';
+  String get logOutConfirmationDialogMessage =>
+      'To use this account in the future, you will have to re-enter the URL for your organization and your account information.';
 
   @override
   String get logOutConfirmationDialogConfirmButton => 'Log out';
@@ -65,13 +80,18 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get permissionsNeededOpenSettings => 'Open settings';
 
   @override
-  String get permissionsDeniedCameraAccess => 'To upload an image, please grant Zulip additional permissions in Settings.';
+  String get permissionsDeniedCameraAccess =>
+      'To upload an image, please grant Zulip additional permissions in Settings.';
 
   @override
-  String get permissionsDeniedReadExternalStorage => 'To upload files, please grant Zulip additional permissions in Settings.';
+  String get permissionsDeniedReadExternalStorage =>
+      'To upload files, please grant Zulip additional permissions in Settings.';
 
   @override
   String get actionSheetOptionMarkChannelAsRead => 'Mark channel as read';
+
+  @override
+  String get actionSheetOptionListOfTopics => 'List of topics';
 
   @override
   String get actionSheetOptionMuteTopic => 'Mute topic';
@@ -95,7 +115,8 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get errorResolveTopicFailedTitle => 'Failed to mark topic as resolved';
 
   @override
-  String get errorUnresolveTopicFailedTitle => 'Failed to mark topic as unresolved';
+  String get errorUnresolveTopicFailedTitle =>
+      'Failed to mark topic as unresolved';
 
   @override
   String get actionSheetOptionCopyMessageText => 'Copy message text';
@@ -107,16 +128,22 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get actionSheetOptionMarkAsUnread => 'Mark as unread from here';
 
   @override
+  String get actionSheetOptionHideMutedMessage => 'Hide muted message again';
+
+  @override
   String get actionSheetOptionShare => 'Share';
 
   @override
-  String get actionSheetOptionQuoteAndReply => 'Quote and reply';
+  String get actionSheetOptionQuoteMessage => 'Quote message';
 
   @override
   String get actionSheetOptionStarMessage => 'Star message';
 
   @override
   String get actionSheetOptionUnstarMessage => 'Unstar message';
+
+  @override
+  String get actionSheetOptionEditMessage => 'Edit message';
 
   @override
   String get actionSheetOptionMarkTopicAsRead => 'Mark topic as read';
@@ -136,7 +163,8 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   }
 
   @override
-  String get errorCouldNotFetchMessageSource => 'Could not fetch message source';
+  String get errorCouldNotFetchMessageSource =>
+      'Could not fetch message source.';
 
   @override
   String get errorCopyingFailed => 'Copying failed';
@@ -152,7 +180,11 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   }
 
   @override
-  String errorFilesTooLarge(int num, int maxFileUploadSizeMib, String listMessage) {
+  String errorFilesTooLarge(
+    int num,
+    int maxFileUploadSizeMib,
+    String listMessage,
+  ) {
     String _temp0 = intl.Intl.pluralLogic(
       num,
       locale: localeName,
@@ -183,6 +215,9 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get errorMessageNotSent => 'Message not sent';
 
   @override
+  String get errorMessageEditNotSaved => 'Message not saved';
+
+  @override
   String errorLoginCouldNotConnect(String url) {
     return 'Failed to connect to server:\n$url';
   }
@@ -191,7 +226,8 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get errorCouldNotConnectTitle => 'Could not connect';
 
   @override
-  String get errorMessageDoesNotSeemToExist => 'That message does not seem to exist.';
+  String get errorMessageDoesNotSeemToExist =>
+      'That message does not seem to exist.';
 
   @override
   String get errorQuotationFailed => 'Quotation failed';
@@ -202,7 +238,8 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   }
 
   @override
-  String get errorConnectingToServerShort => 'Error connecting to Zulip. Retrying…';
+  String get errorConnectingToServerShort =>
+      'Error connecting to Zulip. Retrying…';
 
   @override
   String errorConnectingToServerDetails(String serverUrl, String error) {
@@ -210,10 +247,15 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   }
 
   @override
-  String get errorHandlingEventTitle => 'Error handling a Zulip event. Retrying connection…';
+  String get errorHandlingEventTitle =>
+      'Error handling a Zulip event. Retrying connection…';
 
   @override
-  String errorHandlingEventDetails(String serverUrl, String error, String event) {
+  String errorHandlingEventDetails(
+    String serverUrl,
+    String error,
+    String event,
+  ) {
     return 'Error handling a Zulip event from $serverUrl; will retry.\n\nError: $error\n\nEvent: $event';
   }
 
@@ -247,6 +289,9 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get errorUnstarMessageFailedTitle => 'Failed to unstar message';
 
   @override
+  String get errorCouldNotEditMessageTitle => 'Could not edit message';
+
+  @override
   String get successLinkCopied => 'Link copied';
 
   @override
@@ -256,10 +301,49 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get successMessageLinkCopied => 'Message link copied';
 
   @override
-  String get errorBannerDeactivatedDmLabel => 'You cannot send messages to deactivated users.';
+  String get errorBannerDeactivatedDmLabel =>
+      'You cannot send messages to deactivated users.';
 
   @override
-  String get errorBannerCannotPostInChannelLabel => 'You do not have permission to post in this channel.';
+  String get errorBannerCannotPostInChannelLabel =>
+      'You do not have permission to post in this channel.';
+
+  @override
+  String get composeBoxBannerLabelEditMessage => 'Edit message';
+
+  @override
+  String get composeBoxBannerButtonCancel => 'Cancel';
+
+  @override
+  String get composeBoxBannerButtonSave => 'Save';
+
+  @override
+  String get editAlreadyInProgressTitle => 'Cannot edit message';
+
+  @override
+  String get editAlreadyInProgressMessage =>
+      'An edit is already in progress. Please wait for it to complete.';
+
+  @override
+  String get savingMessageEditLabel => 'SAVING EDIT…';
+
+  @override
+  String get savingMessageEditFailedLabel => 'EDIT NOT SAVED';
+
+  @override
+  String get discardDraftConfirmationDialogTitle =>
+      'Discard the message you’re writing?';
+
+  @override
+  String get discardDraftForEditConfirmationDialogMessage =>
+      'When you edit a message, the content that was previously in the compose box is discarded.';
+
+  @override
+  String get discardDraftForOutboxConfirmationDialogMessage =>
+      'When you restore an unsent message, the content that was previously in the compose box is discarded.';
+
+  @override
+  String get discardDraftConfirmationDialogConfirmButton => 'Discard';
 
   @override
   String get composeBoxAttachFilesTooltip => 'Attach files';
@@ -272,6 +356,24 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
 
   @override
   String get composeBoxGenericContentHint => 'Type a message';
+
+  @override
+  String get newDmSheetComposeButtonLabel => 'Compose';
+
+  @override
+  String get newDmSheetScreenTitle => 'New DM';
+
+  @override
+  String get newDmFabButtonLabel => 'New DM';
+
+  @override
+  String get newDmSheetSearchHintEmpty => 'Add one or more users';
+
+  @override
+  String get newDmSheetSearchHintSomeSelected => 'Add another user…';
+
+  @override
+  String get newDmSheetNoUsersFound => 'No users found';
 
   @override
   String composeBoxDmContentHint(String user) {
@@ -290,6 +392,9 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   }
 
   @override
+  String get preparingEditMessageContentInput => 'Preparing…';
+
+  @override
   String get composeBoxSendTooltip => 'Send';
 
   @override
@@ -297,6 +402,11 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
 
   @override
   String get composeBoxTopicHintText => 'Topic';
+
+  @override
+  String composeBoxEnterTopicOrSkipHintText(String defaultTopicName) {
+    return 'Enter a topic (skip for “$defaultTopicName”)';
+  }
 
   @override
   String composeBoxUploadingFilename(String filename) {
@@ -325,19 +435,28 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   }
 
   @override
+  String get emptyMessageList => 'There are no messages here.';
+
+  @override
+  String get emptyMessageListSearch => 'No search results.';
+
+  @override
   String get messageListGroupYouWithYourself => 'Messages with yourself';
 
   @override
-  String get contentValidationErrorTooLong => 'Message length shouldn\'t be greater than 10000 characters.';
+  String get contentValidationErrorTooLong =>
+      'Message length shouldn\'t be greater than 10000 characters.';
 
   @override
   String get contentValidationErrorEmpty => 'You have nothing to send!';
 
   @override
-  String get contentValidationErrorQuoteAndReplyInProgress => 'Please wait for the quotation to complete.';
+  String get contentValidationErrorQuoteAndReplyInProgress =>
+      'Please wait for the quotation to complete.';
 
   @override
-  String get contentValidationErrorUploadInProgress => 'Please wait for the upload to complete.';
+  String get contentValidationErrorUploadInProgress =>
+      'Please wait for the upload to complete.';
 
   @override
   String get dialogCancel => 'Cancel';
@@ -411,13 +530,19 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get loginErrorMissingUsername => 'Please enter your username.';
 
   @override
-  String get topicValidationErrorTooLong => 'Topic length shouldn\'t be greater than 60 characters.';
+  String get topicValidationErrorTooLong =>
+      'Topic length shouldn\'t be greater than 60 characters.';
 
   @override
-  String get topicValidationErrorMandatoryButEmpty => 'Topics are required in this organization.';
+  String get topicValidationErrorMandatoryButEmpty =>
+      'Topics are required in this organization.';
 
   @override
-  String errorServerVersionUnsupportedMessage(String url, String zulipVersion, String minSupportedZulipVersion) {
+  String errorServerVersionUnsupportedMessage(
+    String url,
+    String zulipVersion,
+    String minSupportedZulipVersion,
+  ) {
     return '$url is running Zulip Server $zulipVersion, which is unsupported. The minimum supported version is Zulip Server $minSupportedZulipVersion.';
   }
 
@@ -427,7 +552,7 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   }
 
   @override
-  String get errorInvalidResponse => 'The server sent an invalid response';
+  String get errorInvalidResponse => 'The server sent an invalid response.';
 
   @override
   String get errorNetworkRequestFailed => 'Network request failed';
@@ -448,7 +573,7 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   }
 
   @override
-  String get errorVideoPlayerFailed => 'Unable to play the video';
+  String get errorVideoPlayerFailed => 'Unable to play the video.';
 
   @override
   String get serverUrlValidationErrorEmpty => 'Please enter a URL.';
@@ -457,10 +582,12 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get serverUrlValidationErrorInvalidUrl => 'Please enter a valid URL.';
 
   @override
-  String get serverUrlValidationErrorNoUseEmail => 'Please enter the server URL, not your email.';
+  String get serverUrlValidationErrorNoUseEmail =>
+      'Please enter the server URL, not your email.';
 
   @override
-  String get serverUrlValidationErrorUnsupportedScheme => 'The server URL must start with http:// or https://.';
+  String get serverUrlValidationErrorUnsupportedScheme =>
+      'The server URL must start with http:// or https://.';
 
   @override
   String get spoilerDefaultHeaderText => 'Spoiler';
@@ -527,13 +654,30 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get userRoleUnknown => 'Unknown';
 
   @override
+  String get searchMessagesPageTitle => 'Search';
+
+  @override
+  String get searchMessagesHintText => 'Search';
+
+  @override
+  String get searchMessagesClearButtonTooltip => 'Clear';
+
+  @override
   String get inboxPageTitle => 'Inbox';
+
+  @override
+  String get inboxEmptyPlaceholder =>
+      'There are no unread messages in your inbox. Use the buttons below to view the combined feed or list of channels.';
 
   @override
   String get recentDmConversationsPageTitle => 'Direct messages';
 
   @override
   String get recentDmConversationsSectionHeader => 'Direct messages';
+
+  @override
+  String get recentDmConversationsEmptyPlaceholder =>
+      'You have no direct messages yet! Why not start the conversation?';
 
   @override
   String get combinedFeedPageTitle => 'Combined feed';
@@ -548,7 +692,14 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get channelsPageTitle => 'Channels';
 
   @override
+  String get channelsEmptyPlaceholder =>
+      'You are not subscribed to any channels yet.';
+
+  @override
   String get mainMenuMyProfile => 'My profile';
+
+  @override
+  String get topicsButtonLabel => 'TOPICS';
 
   @override
   String get channelFeedButtonTooltip => 'Channel feed';
@@ -569,9 +720,6 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
 
   @override
   String get unpinnedSubscriptionsLabel => 'Unpinned';
-
-  @override
-  String get subscriptionListNoChannels => 'No channels found';
 
   @override
   String get notifSelfUser => 'You';
@@ -626,6 +774,9 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get messageIsMovedLabel => 'MOVED';
 
   @override
+  String get messageNotSentLabel => 'MESSAGE NOT SENT';
+
+  @override
   String pollVoterNames(String voterNames) {
     return '($voterNames)';
   }
@@ -652,16 +803,56 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
   String get pollWidgetOptionsMissing => 'This poll has no options yet.';
 
   @override
+  String get initialAnchorSettingTitle => 'Open message feeds at';
+
+  @override
+  String get initialAnchorSettingDescription =>
+      'You can choose whether message feeds open at your first unread message or at the newest messages.';
+
+  @override
+  String get initialAnchorSettingFirstUnreadAlways => 'First unread message';
+
+  @override
+  String get initialAnchorSettingFirstUnreadConversations =>
+      'First unread message in conversation views, newest message elsewhere';
+
+  @override
+  String get initialAnchorSettingNewestAlways => 'Newest message';
+
+  @override
+  String get markReadOnScrollSettingTitle => 'Mark messages as read on scroll';
+
+  @override
+  String get markReadOnScrollSettingDescription =>
+      'When scrolling through messages, should they automatically be marked as read?';
+
+  @override
+  String get markReadOnScrollSettingAlways => 'Always';
+
+  @override
+  String get markReadOnScrollSettingNever => 'Never';
+
+  @override
+  String get markReadOnScrollSettingConversations =>
+      'Only in conversation views';
+
+  @override
+  String get markReadOnScrollSettingConversationsDescription =>
+      'Messages will be automatically marked as read only when viewing a single topic or direct message conversation.';
+
+  @override
   String get experimentalFeatureSettingsPageTitle => 'Experimental features';
 
   @override
-  String get experimentalFeatureSettingsWarning => 'These options enable features which are still under development and not ready. They may not work, and may cause issues in other areas of the app.\n\nThe purpose of these settings is for experimentation by people working on developing Zulip.';
+  String get experimentalFeatureSettingsWarning =>
+      'These options enable features which are still under development and not ready. They may not work, and may cause issues in other areas of the app.\n\nThe purpose of these settings is for experimentation by people working on developing Zulip.';
 
   @override
   String get errorNotificationOpenTitle => 'Failed to open notification';
 
   @override
-  String get errorNotificationOpenAccountMissing => 'The account associated with this notification no longer exists.';
+  String get errorNotificationOpenAccountNotFound =>
+      'The account associated with this notification could not be found.';
 
   @override
   String get errorReactionAddingFailedTitle => 'Adding reaction failed';
@@ -677,6 +868,12 @@ class ZulipLocalizationsNb extends ZulipLocalizations {
 
   @override
   String get noEarlierMessages => 'No earlier messages';
+
+  @override
+  String get revealButtonLabel => 'Reveal message';
+
+  @override
+  String get mutedUser => 'Muted user';
 
   @override
   String get scrollToBottomTooltip => 'Scroll to bottom';

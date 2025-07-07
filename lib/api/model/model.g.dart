@@ -68,6 +68,12 @@ Map<String, dynamic> _$CustomProfileFieldExternalAccountDataToJson(
   'url_pattern': instance.urlPattern,
 };
 
+MutedUserItem _$MutedUserItemFromJson(Map<String, dynamic> json) =>
+    MutedUserItem(id: (json['id'] as num).toInt());
+
+Map<String, dynamic> _$MutedUserItemToJson(MutedUserItem instance) =>
+    <String, dynamic>{'id': instance.id};
+
 RealmEmojiItem _$RealmEmojiItemFromJson(Map<String, dynamic> json) =>
     RealmEmojiItem(
       emojiCode: json['id'] as String,
@@ -107,14 +113,14 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
   timezone: json['timezone'] as String,
   avatarUrl: json['avatar_url'] as String?,
   avatarVersion: (json['avatar_version'] as num).toInt(),
-  profileData: (User._readProfileData(json, 'profile_data')
-          as Map<String, dynamic>?)
-      ?.map(
-        (k, e) => MapEntry(
-          int.parse(k),
-          ProfileFieldUserData.fromJson(e as Map<String, dynamic>),
-        ),
-      ),
+  profileData:
+      (User._readProfileData(json, 'profile_data') as Map<String, dynamic>?)
+          ?.map(
+            (k, e) => MapEntry(
+              int.parse(k),
+              ProfileFieldUserData.fromJson(e as Map<String, dynamic>),
+            ),
+          ),
   isSystemBot: User._readIsSystemBot(json, 'is_system_bot') as bool,
 );
 
@@ -161,6 +167,33 @@ Map<String, dynamic> _$ProfileFieldUserDataToJson(
   'value': instance.value,
   'rendered_value': instance.renderedValue,
 };
+
+PerUserPresence _$PerUserPresenceFromJson(Map<String, dynamic> json) =>
+    PerUserPresence(
+      activeTimestamp: (json['active_timestamp'] as num).toInt(),
+      idleTimestamp: (json['idle_timestamp'] as num).toInt(),
+    );
+
+Map<String, dynamic> _$PerUserPresenceToJson(PerUserPresence instance) =>
+    <String, dynamic>{
+      'active_timestamp': instance.activeTimestamp,
+      'idle_timestamp': instance.idleTimestamp,
+    };
+
+SavedSnippet _$SavedSnippetFromJson(Map<String, dynamic> json) => SavedSnippet(
+  id: (json['id'] as num).toInt(),
+  title: json['title'] as String,
+  content: json['content'] as String,
+  dateCreated: (json['date_created'] as num).toInt(),
+);
+
+Map<String, dynamic> _$SavedSnippetToJson(SavedSnippet instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'title': instance.title,
+      'content': instance.content,
+      'date_created': instance.dateCreated,
+    };
 
 ZulipStream _$ZulipStreamFromJson(Map<String, dynamic> json) => ZulipStream(
   streamId: (json['stream_id'] as num).toInt(),
@@ -254,83 +287,73 @@ Map<String, dynamic> _$SubscriptionToJson(Subscription instance) =>
       'color': instance.color,
     };
 
-StreamMessage _$StreamMessageFromJson(Map<String, dynamic> json) {
+StreamConversation _$StreamConversationFromJson(Map<String, dynamic> json) {
   $checkKeys(
     json,
     requiredKeys: const ['display_recipient'],
     disallowNullValues: const ['display_recipient'],
   );
-  return StreamMessage(
-    client: json['client'] as String,
-    content: json['content'] as String,
-    contentType: json['content_type'] as String,
-    editState: Message._messageEditStateFromJson(
-      MessageEditState._readFromMessage(json, 'edit_state'),
-    ),
-    id: (json['id'] as num).toInt(),
-    isMeMessage: json['is_me_message'] as bool,
-    lastEditTimestamp: (json['last_edit_timestamp'] as num?)?.toInt(),
-    reactions: Message._reactionsFromJson(json['reactions']),
-    recipientId: (json['recipient_id'] as num).toInt(),
-    senderEmail: json['sender_email'] as String,
-    senderFullName: json['sender_full_name'] as String,
-    senderId: (json['sender_id'] as num).toInt(),
-    senderRealmStr: json['sender_realm_str'] as String,
-    timestamp: (json['timestamp'] as num).toInt(),
-    flags: Message._flagsFromJson(json['flags']),
-    matchContent: json['match_content'] as String?,
-    matchTopic: json['match_subject'] as String?,
+  return StreamConversation(
+    (json['stream_id'] as num).toInt(),
+    TopicName.fromJson(json['subject'] as String),
     displayRecipient: json['display_recipient'] as String?,
-    streamId: (json['stream_id'] as num).toInt(),
-    topic: TopicName.fromJson(json['subject'] as String),
-  )..poll = Poll.fromJson(Message._readPoll(json, 'submessages'));
+  );
 }
 
-Map<String, dynamic> _$StreamMessageToJson(
-  StreamMessage instance,
-) => <String, dynamic>{
-  'client': instance.client,
-  'content': instance.content,
-  'content_type': instance.contentType,
-  'edit_state': _$MessageEditStateEnumMap[instance.editState]!,
-  'id': instance.id,
-  'is_me_message': instance.isMeMessage,
-  'last_edit_timestamp': instance.lastEditTimestamp,
-  'reactions': Message._reactionsToJson(instance.reactions),
-  'recipient_id': instance.recipientId,
-  'sender_email': instance.senderEmail,
-  'sender_full_name': instance.senderFullName,
-  'sender_id': instance.senderId,
-  'sender_realm_str': instance.senderRealmStr,
-  'submessages': Poll.toJson(instance.poll),
-  'timestamp': instance.timestamp,
-  'flags': instance.flags,
-  'match_content': instance.matchContent,
-  'match_subject': instance.matchTopic,
-  'type': instance.type,
-  if (instance.displayRecipient case final value?) 'display_recipient': value,
-  'stream_id': instance.streamId,
-  'subject': instance.topic,
-};
+StreamMessage _$StreamMessageFromJson(Map<String, dynamic> json) =>
+    StreamMessage(
+      client: json['client'] as String,
+      content: json['content'] as String,
+      contentType: json['content_type'] as String,
+      editState: Message._messageEditStateFromJson(
+        MessageEditState._readFromMessage(json, 'edit_state'),
+      ),
+      id: (json['id'] as num).toInt(),
+      isMeMessage: json['is_me_message'] as bool,
+      lastEditTimestamp: (json['last_edit_timestamp'] as num?)?.toInt(),
+      reactions: Message._reactionsFromJson(json['reactions']),
+      recipientId: (json['recipient_id'] as num).toInt(),
+      senderEmail: json['sender_email'] as String,
+      senderFullName: json['sender_full_name'] as String,
+      senderId: (json['sender_id'] as num).toInt(),
+      senderRealmStr: json['sender_realm_str'] as String,
+      timestamp: (json['timestamp'] as num).toInt(),
+      flags: Message._flagsFromJson(json['flags']),
+      conversation: StreamConversation.fromJson(
+        StreamMessage._readConversation(json, 'conversation')
+            as Map<String, dynamic>,
+      ),
+    )..poll = Poll.fromJson(Message._readPoll(json, 'submessages'));
+
+Map<String, dynamic> _$StreamMessageToJson(StreamMessage instance) =>
+    <String, dynamic>{
+      'sender_id': instance.senderId,
+      'timestamp': instance.timestamp,
+      'client': instance.client,
+      'content': instance.content,
+      'content_type': instance.contentType,
+      'edit_state': _$MessageEditStateEnumMap[instance.editState]!,
+      'id': instance.id,
+      'is_me_message': instance.isMeMessage,
+      'last_edit_timestamp': instance.lastEditTimestamp,
+      'reactions': Message._reactionsToJson(instance.reactions),
+      'recipient_id': instance.recipientId,
+      'sender_email': instance.senderEmail,
+      'sender_full_name': instance.senderFullName,
+      'sender_realm_str': instance.senderRealmStr,
+      'submessages': Poll.toJson(instance.poll),
+      'flags': instance.flags,
+      'type': instance.type,
+      'stream_id': instance.streamId,
+      'subject': instance.topic,
+      'display_recipient': instance.displayRecipient,
+    };
 
 const _$MessageEditStateEnumMap = {
   MessageEditState.none: 'none',
   MessageEditState.edited: 'edited',
   MessageEditState.moved: 'moved',
 };
-
-DmRecipient _$DmRecipientFromJson(Map<String, dynamic> json) => DmRecipient(
-  id: (json['id'] as num).toInt(),
-  email: json['email'] as String,
-  fullName: json['full_name'] as String,
-);
-
-Map<String, dynamic> _$DmRecipientToJson(DmRecipient instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'email': instance.email,
-      'full_name': instance.fullName,
-    };
 
 DmMessage _$DmMessageFromJson(Map<String, dynamic> json) => DmMessage(
   client: json['client'] as String,
@@ -350,14 +373,14 @@ DmMessage _$DmMessageFromJson(Map<String, dynamic> json) => DmMessage(
   senderRealmStr: json['sender_realm_str'] as String,
   timestamp: (json['timestamp'] as num).toInt(),
   flags: Message._flagsFromJson(json['flags']),
-  matchContent: json['match_content'] as String?,
-  matchTopic: json['match_subject'] as String?,
-  displayRecipient: const DmRecipientListConverter().fromJson(
+  conversation: DmMessage._conversationFromJson(
     json['display_recipient'] as List,
   ),
 )..poll = Poll.fromJson(Message._readPoll(json, 'submessages'));
 
 Map<String, dynamic> _$DmMessageToJson(DmMessage instance) => <String, dynamic>{
+  'sender_id': instance.senderId,
+  'timestamp': instance.timestamp,
   'client': instance.client,
   'content': instance.content,
   'content_type': instance.contentType,
@@ -369,16 +392,12 @@ Map<String, dynamic> _$DmMessageToJson(DmMessage instance) => <String, dynamic>{
   'recipient_id': instance.recipientId,
   'sender_email': instance.senderEmail,
   'sender_full_name': instance.senderFullName,
-  'sender_id': instance.senderId,
   'sender_realm_str': instance.senderRealmStr,
   'submessages': Poll.toJson(instance.poll),
-  'timestamp': instance.timestamp,
   'flags': instance.flags,
-  'match_content': instance.matchContent,
-  'match_subject': instance.matchTopic,
   'type': instance.type,
-  'display_recipient': const DmRecipientListConverter().toJson(
-    instance.displayRecipient,
+  'display_recipient': DmMessage._allRecipientIdsToJson(
+    instance.allRecipientIds,
   ),
 };
 
@@ -393,6 +412,11 @@ const _$EmojisetEnumMap = {
   Emojiset.googleBlob: 'google-blob',
   Emojiset.twitter: 'twitter',
   Emojiset.text: 'text',
+};
+
+const _$PresenceStatusEnumMap = {
+  PresenceStatus.active: 'active',
+  PresenceStatus.idle: 'idle',
 };
 
 const _$ChannelPropertyNameEnumMap = {

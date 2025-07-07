@@ -93,13 +93,6 @@ void main() {
         .topic.equals(const TopicName('hello'));
     });
 
-    test('match_subject -> matchTopic', () {
-      check(baseStreamJson()).not((it) => it.containsKey('match_topic'));
-      check(Message.fromJson(baseStreamJson()
-        ..['match_subject'] = 'yo'
-      )).matchTopic.equals('yo');
-    });
-
     test('no crash on unrecognized flag', () {
       final m1 = Message.fromJson(
         (deepToJson(eg.streamMessage()) as Map<String, dynamic>)
@@ -161,6 +154,31 @@ void main() {
 
       doCheck(eg.t('✔ a'),          eg.t('✔ b'),          false);
     });
+
+    test('processLikeServer', () {
+      final emptyTopicDisplayName = eg.defaultRealmEmptyTopicDisplayName;
+      void doCheck(TopicName topic, TopicName expected, int zulipFeatureLevel) {
+        check(topic.processLikeServer(
+          zulipFeatureLevel: zulipFeatureLevel,
+          realmEmptyTopicDisplayName: emptyTopicDisplayName),
+        ).equals(expected);
+      }
+
+      check(() => eg.t('').processLikeServer(
+        zulipFeatureLevel: 333,
+        realmEmptyTopicDisplayName: emptyTopicDisplayName),
+      ).throws<void>();
+      doCheck(eg.t('(no topic)'),          eg.t('(no topic)'),          333);
+      doCheck(eg.t(emptyTopicDisplayName), eg.t(emptyTopicDisplayName), 333);
+      doCheck(eg.t('other topic'),         eg.t('other topic'),         333);
+
+      doCheck(eg.t(''),                    eg.t(''),                    334);
+      doCheck(eg.t('(no topic)'),          eg.t('(no topic)'),          334);
+      doCheck(eg.t(emptyTopicDisplayName), eg.t(''),                    334);
+      doCheck(eg.t('other topic'),         eg.t('other topic'),         334);
+
+      doCheck(eg.t('(no topic)'),          eg.t(''),                    370);
+    });
   });
 
   group('DmMessage', () {
@@ -172,9 +190,9 @@ void main() {
       return DmMessage.fromJson({ ...baseJson, ...specialJson });
     }
 
-    Iterable<DmRecipient> asRecipients(Iterable<User> users) {
+    List<Map<String, dynamic>> asRecipients(Iterable<User> users) {
       return users.map((u) =>
-        DmRecipient(id: u.userId, email: u.email, fullName: u.fullName));
+        {'id': u.userId, 'email': u.email, 'full_name': u.fullName}).toList();
     }
 
     Map<String, dynamic> withRecipients(Iterable<User> recipients) {
@@ -183,30 +201,13 @@ void main() {
         'sender_id': from.userId,
         'sender_email': from.email,
         'sender_full_name': from.fullName,
-        'display_recipient': asRecipients(recipients).map((r) => r.toJson()).toList(),
+        'display_recipient': asRecipients(recipients),
       };
     }
 
     User user2 = eg.user(userId: 2);
     User user3 = eg.user(userId: 3);
     User user11 = eg.user(userId: 11);
-
-    test('displayRecipient', () {
-      check(parse(withRecipients([user2])).displayRecipient)
-        .deepEquals(asRecipients([user2]));
-
-      check(parse(withRecipients([user2, user3])).displayRecipient)
-        .deepEquals(asRecipients([user2, user3]));
-      check(parse(withRecipients([user3, user2])).displayRecipient)
-        .deepEquals(asRecipients([user2, user3]));
-
-      check(parse(withRecipients([user2, user3, user11])).displayRecipient)
-        .deepEquals(asRecipients([user2, user3, user11]));
-      check(parse(withRecipients([user3, user11, user2])).displayRecipient)
-        .deepEquals(asRecipients([user2, user3, user11]));
-      check(parse(withRecipients([user11, user2, user3])).displayRecipient)
-        .deepEquals(asRecipients([user2, user3, user11]));
-    });
 
     test('allRecipientIds', () {
       check(parse(withRecipients([user2])).allRecipientIds)

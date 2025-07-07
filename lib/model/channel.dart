@@ -301,7 +301,16 @@ class ChannelStoreImpl with ChannelStore {
 
       case SubscriptionRemoveEvent():
         for (final streamId in event.streamIds) {
-          subscriptions.remove(streamId);
+          assert(streams.containsKey(streamId));
+          assert(streams[streamId] is Subscription);
+          assert(streamsByName.containsKey(streams[streamId]!.name));
+          assert(streamsByName[streams[streamId]!.name] is Subscription);
+          assert(subscriptions.containsKey(streamId));
+          final subscription = subscriptions.remove(streamId);
+          if (subscription == null) continue; // TODO(log)
+          final stream = ZulipStream.fromSubscription(subscription);
+          streams[streamId] = stream;
+          streamsByName[subscription.name] = stream;
         }
 
       case SubscriptionUpdateEvent():
@@ -313,7 +322,7 @@ class ChannelStoreImpl with ChannelStore {
           case SubscriptionProperty.color:
             subscription.color                  = event.value as int;
           case SubscriptionProperty.isMuted:
-            // TODO(#421) update [MessageListView] if affected
+            // TODO(#1255) update [MessageListView] if affected
             subscription.isMuted                = event.value as bool;
           case SubscriptionProperty.inHomeView:
             subscription.isMuted                = !(event.value as bool);
@@ -345,7 +354,6 @@ class ChannelStoreImpl with ChannelStore {
     if (_warnInvalidVisibilityPolicy(visibilityPolicy)) {
       visibilityPolicy = UserTopicVisibilityPolicy.none;
     }
-    // TODO(#421) update [MessageListView] if affected
     if (visibilityPolicy == UserTopicVisibilityPolicy.none) {
       // This is the "zero value" for this type, which our data structure
       // represents by leaving the topic out entirely.

@@ -1,5 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 
+import '../../model/algorithms.dart';
 import 'events.dart';
 import 'initial_snapshot.dart';
 import 'reaction.dart';
@@ -107,6 +108,25 @@ class CustomProfileFieldExternalAccountData {
     _$CustomProfileFieldExternalAccountDataFromJson(json);
 
   Map<String, dynamic> toJson() => _$CustomProfileFieldExternalAccountDataToJson(this);
+}
+
+/// An item in the [InitialSnapshot.mutedUsers] or [MutedUsersEvent].
+///
+/// For docs, search for "muted_users:"
+/// in <https://zulip.com/api/register-queue>.
+@JsonSerializable(fieldRename: FieldRename.snake)
+class MutedUserItem {
+  final int id;
+
+  // Mobile doesn't use the timestamp; ignore.
+  // final int timestamp;
+
+  const MutedUserItem({required this.id});
+
+  factory MutedUserItem.fromJson(Map<String, dynamic> json) =>
+    _$MutedUserItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$MutedUserItemToJson(this);
 }
 
 /// An item in [InitialSnapshot.realmEmoji] or [RealmEmojiUpdateEvent].
@@ -310,6 +330,59 @@ enum UserRole{
   }
 }
 
+/// A value in [InitialSnapshot.presences].
+///
+/// For docs, search for "presences:"
+/// in <https://zulip.com/api/register-queue>.
+@JsonSerializable(fieldRename: FieldRename.snake)
+class PerUserPresence {
+  final int activeTimestamp;
+  final int idleTimestamp;
+
+  PerUserPresence({
+    required this.activeTimestamp,
+    required this.idleTimestamp,
+  });
+
+  factory PerUserPresence.fromJson(Map<String, dynamic> json) =>
+    _$PerUserPresenceFromJson(json);
+
+  Map<String, dynamic> toJson() => _$PerUserPresenceToJson(this);
+}
+
+/// As in [PerClientPresence.status] and [updatePresence].
+@JsonEnum(fieldRename: FieldRename.snake, alwaysCreate: true)
+enum PresenceStatus {
+  active,
+  idle;
+
+  String toJson() => _$PresenceStatusEnumMap[this]!;
+}
+
+/// An item in `saved_snippets` from the initial snapshot.
+///
+/// For docs, search for "saved_snippets:"
+/// in <https://zulip.com/api/register-queue>.
+@JsonSerializable(fieldRename: FieldRename.snake)
+class SavedSnippet {
+  SavedSnippet({
+    required this.id,
+    required this.title,
+    required this.content,
+    required this.dateCreated,
+  });
+
+  final int id;
+  final String title;
+  final String content;
+  final int dateCreated;
+
+  factory SavedSnippet.fromJson(Map<String, Object?> json) =>
+    _$SavedSnippetFromJson(json);
+
+  Map<String, dynamic> toJson() => _$SavedSnippetToJson(this);
+}
+
 /// As in `streams` in the initial snapshot.
 ///
 /// Not called `Stream` because dart:async uses that name.
@@ -361,6 +434,24 @@ class ZulipStream {
     required this.channelPostPolicy,
     required this.streamWeeklyTraffic,
   });
+
+  /// Construct a plain [ZulipStream] from [subscription].
+  factory ZulipStream.fromSubscription(Subscription subscription) {
+    return ZulipStream(
+      streamId: subscription.streamId,
+      name: subscription.name,
+      description: subscription.description,
+      renderedDescription: subscription.renderedDescription,
+      dateCreated: subscription.dateCreated,
+      firstMessageId: subscription.firstMessageId,
+      inviteOnly: subscription.inviteOnly,
+      isWebPublic: subscription.isWebPublic,
+      historyPublicToSubscribers: subscription.historyPublicToSubscribers,
+      messageRetentionDays: subscription.messageRetentionDays,
+      channelPostPolicy: subscription.channelPostPolicy,
+      streamWeeklyTraffic: subscription.streamWeeklyTraffic,
+    );
+  }
 
   factory ZulipStream.fromJson(Map<String, dynamic> json) =>
     _$ZulipStreamFromJson(json);
@@ -531,10 +622,217 @@ String? tryParseEmojiCodeToUnicode(String emojiCode) {
   }
 }
 
+/// The topic servers understand to mean "there is no topic".
+///
+/// This should match
+///   https://github.com/zulip/zulip/blob/6.0/zerver/actions/message_edit.py#L940
+/// or similar logic at the latest `main`.
+// This is hardcoded in the server, and therefore untranslated; that's
+// zulip/zulip#3639.
+const String kNoTopicTopic = '(no topic)';
+
+/// The name of a Zulip topic.
+// TODO(dart): Can we forbid calling Object members on this extension type?
+//   (The lack of "implements Object" ought to do that, but doesn't.)
+//   In particular an interpolation "foo > $topic" is a bug we'd like to catch.
+// TODO(dart): Can we forbid using this extension type as a key in a Map?
+//   (The lack of "implements Object" arguably should do that, but doesn't.)
+//   Using as a Map key is almost certainly a bug because it won't case-fold;
+//   see for example #739, #980, #1205.
+extension type const TopicName(String _value) {
+  /// The canonical form of the resolved-topic prefix.
+  // This is RESOLVED_TOPIC_PREFIX in web:
+  //   https://github.com/zulip/zulip/blob/1fac99733/web/shared/src/resolved_topic.ts
+  static const resolvedTopicPrefix = '✔ ';
+
+  /// Pattern for an arbitrary resolved-topic prefix.
+  ///
+  /// These always begin with [resolvedTopicPrefix]
+  /// but can be weird and go on longer, like "✔ ✔✔ ".
+  // This is RESOLVED_TOPIC_PREFIX_RE in web:
+  //   https://github.com/zulip/zulip/blob/1fac99733/web/shared/src/resolved_topic.ts#L4-L12
+  static final resolvedTopicPrefixRegexp = RegExp(r'^✔ [ ✔]*');
+
+  /// The string this topic is identified by in the Zulip API.
+  ///
+  /// This should be used in constructing HTTP requests to the server,
+  /// but rarely for other purposes.  See [displayName] and [canonicalize].
+  String get apiName => _value;
+
+  /// The string this topic is displayed as to the user in our UI.
+  ///
+  /// At the moment this always equals [apiName].
+  String? get displayName => _value.isEmpty ? null : _value;
+
+  /// The key to use for "same topic as" comparisons.
+  String canonicalize() => apiName.toLowerCase();
+
+  /// Whether the topic starts with [resolvedTopicPrefix].
+  bool get isResolved => _value.startsWith(resolvedTopicPrefix);
+
+  /// This [TopicName] plus the [resolvedTopicPrefix] prefix.
+  TopicName resolve() => TopicName(resolvedTopicPrefix + _value);
+
+  /// A [TopicName] with [resolvedTopicPrefixRegexp] stripped if present.
+  TopicName unresolve() =>
+    TopicName(_value.replaceFirst(resolvedTopicPrefixRegexp, ''));
+
+  /// Whether [this] and [other] have the same canonical form,
+  /// using [canonicalize].
+  bool isSameAs(TopicName other) => canonicalize() == other.canonicalize();
+
+  /// Process this topic to match how it would appear on a message object from
+  /// the server.
+  ///
+  /// This returns the [TopicName] the server would be predicted to include
+  /// in a message object resulting from sending to this [TopicName]
+  /// in a [sendMessage] request.
+  ///
+  /// This [TopicName] is required to have no leading or trailing whitespace.
+  ///
+  /// For a client that supports empty topics, when FL>=334, the server converts
+  /// `store.realmEmptyTopicDisplayName` to an empty string; when FL>=370,
+  /// the server converts "(no topic)" to an empty string as well.
+  ///
+  /// See API docs:
+  ///   https://zulip.com/api/send-message#parameter-topic
+  TopicName processLikeServer({
+    required int zulipFeatureLevel,
+    required String? realmEmptyTopicDisplayName,
+  }) {
+    assert(_value.trim() == _value);
+    // TODO(server-10) simplify this away
+    if (zulipFeatureLevel < 334) {
+      // From the API docs:
+      // > Before Zulip 10.0 (feature level 334), empty string was not a valid
+      // > topic name for channel messages.
+      assert(_value.isNotEmpty);
+      return this;
+    }
+
+    // TODO(server-10) simplify this away
+    if (zulipFeatureLevel < 370 && _value == kNoTopicTopic) {
+      // From the API docs:
+      // > Before Zulip 10.0 (feature level 370), "(no topic)" was not
+      // > interpreted as an empty string.
+      return TopicName(kNoTopicTopic);
+    }
+
+    if (_value == kNoTopicTopic || _value == realmEmptyTopicDisplayName) {
+      // From the API docs:
+      // > When "(no topic)" or the value of realm_empty_topic_display_name
+      // > found in the POST /register response is used for [topic],
+      // > it is interpreted as an empty string.
+      return TopicName('');
+    }
+    return TopicName(_value);
+  }
+
+  TopicName.fromJson(this._value);
+
+  String toJson() => apiName;
+}
+
+/// As in [MessageBase.conversation].
+///
+/// Different from [MessageDestination], this information comes from
+/// [getMessages] or [getEvents], identifying the conversation that contains a
+/// message.
+sealed class Conversation {
+  /// Whether [this] and [other] refer to the same Zulip conversation.
+  bool isSameAs(Conversation other);
+}
+
+/// The conversation a stream message is in.
+@JsonSerializable(fieldRename: FieldRename.snake, createToJson: false)
+class StreamConversation extends Conversation {
+  int streamId;
+
+  @JsonKey(name: 'subject')
+  TopicName topic;
+
+  /// The name of the channel with ID [streamId] when the message was sent.
+  ///
+  /// The primary reference for the name of the channel is
+  /// the client's data structures about channels, at [streamId].
+  /// This value may be used as a fallback when the channel is unknown.
+  ///
+  /// This is non-null when found in a [StreamMessage] object in the API,
+  /// but may become null in the client's data structures,
+  /// e.g. if the message gets moved between channels.
+  @JsonKey(required: true, disallowNullValue: true)
+  String? displayRecipient;
+
+  StreamConversation(this.streamId, this.topic, {required this.displayRecipient});
+
+  factory StreamConversation.fromJson(Map<String, dynamic> json) =>
+    _$StreamConversationFromJson(json);
+
+  @override
+  bool isSameAs(Conversation other) {
+    return other is StreamConversation
+      && streamId == other.streamId
+      && topic.isSameAs(other.topic);
+  }
+}
+
+/// The conversation a DM message is in.
+class DmConversation extends Conversation {
+  /// The user IDs of all users in the conversation, sorted numerically.
+  ///
+  /// This lists the sender as well as all (other) recipients, and it
+  /// lists each user just once.  In particular the self-user is always
+  /// included.
+  final List<int> allRecipientIds;
+
+  DmConversation({required this.allRecipientIds})
+    : assert(isSortedWithoutDuplicates(allRecipientIds.toList()));
+
+  bool _equalIdSequences(Iterable<int> xs, Iterable<int> ys) {
+    if (xs.length != ys.length) return false;
+    final xs_ = xs.iterator; final ys_ = ys.iterator;
+    while (xs_.moveNext() && ys_.moveNext()) {
+      if (xs_.current != ys_.current) return false;
+    }
+    return true;
+  }
+
+  @override
+  bool isSameAs(Conversation other) {
+    if (other is! DmConversation) return false;
+    return _equalIdSequences(allRecipientIds, other.allRecipientIds);
+  }
+}
+
+/// A message or message-like object, for showing in a message list.
+///
+/// Other than [Message], we use this for "outbox messages",
+/// representing outstanding [sendMessage] requests.
+abstract class MessageBase<T extends Conversation> {
+  /// The Zulip message ID.
+  ///
+  /// If null, the message doesn't have an ID acknowledged by the server
+  /// (e.g.: a locally-echoed message).
+  int? get id;
+
+  final int senderId;
+  final int timestamp;
+
+  /// The conversation that contains this message.
+  ///
+  /// When implementing this, the return type should be either
+  /// [StreamConversation] or [DmConversation]; it should never be
+  /// [Conversation], because we expect a concrete subclass of [MessageBase]
+  /// to represent either a channel message or a DM message, not both.
+  T get conversation;
+
+  const MessageBase({required this.senderId, required this.timestamp});
+}
+
 /// As in the get-messages response.
 ///
 /// https://zulip.com/api/get-messages#response
-sealed class Message {
+sealed class Message<T extends Conversation> extends MessageBase<T> {
   // final String? avatarUrl; // Use [User.avatarUrl] instead; will live-update
   final String client;
   String content;
@@ -544,6 +842,7 @@ sealed class Message {
   @JsonKey(readValue: MessageEditState._readFromMessage, fromJson: Message._messageEditStateFromJson)
   MessageEditState editState;
 
+  @override
   final int id;
   bool isMeMessage;
   int? lastEditTimestamp;
@@ -554,23 +853,20 @@ sealed class Message {
   final int recipientId;
   final String senderEmail;
   final String senderFullName;
-  final int senderId;
   final String senderRealmStr;
 
   /// Poll data if "submessages" describe a poll, `null` otherwise.
   @JsonKey(name: 'submessages', readValue: _readPoll, fromJson: Poll.fromJson, toJson: Poll.toJson)
   Poll? poll;
 
-  final int timestamp;
   String get type;
 
   // final List<TopicLink> topicLinks; // TODO handle
   // final string type; // handled by runtime type of object
   @JsonKey(fromJson: _flagsFromJson)
   List<MessageFlag> flags; // Unrecognized flags won't roundtrip through {to,from}Json.
-  final String? matchContent;
-  @JsonKey(name: 'match_subject')
-  final String? matchTopic;
+  // TODO(#1663) Add matchContent and matchTopic back again;
+  //   revert the commit that removed these and related test/comment changes.
 
   static MessageEditState _messageEditStateFromJson(Object? json) {
     // This is a no-op so that [MessageEditState._readFromMessage]
@@ -611,15 +907,15 @@ sealed class Message {
     required this.recipientId,
     required this.senderEmail,
     required this.senderFullName,
-    required this.senderId,
+    required super.senderId,
     required this.senderRealmStr,
-    required this.timestamp,
+    required super.timestamp,
     required this.flags,
-    required this.matchContent,
-    required this.matchTopic,
   });
 
-  factory Message.fromJson(Map<String, dynamic> json) {
+  // TODO(dart): This has to be a static method, because factories/constructors
+  //   do not support type parameters: https://github.com/dart-lang/language/issues/647
+  static Message fromJson(Map<String, dynamic> json) {
     final type = json['type'] as String;
     if (type == 'stream') return StreamMessage.fromJson(json);
     if (type == 'private') return DmMessage.fromJson(json);
@@ -655,85 +951,32 @@ enum MessageFlag {
   String toJson() => _$MessageFlagEnumMap[this]!;
 }
 
-/// The name of a Zulip topic.
-// TODO(dart): Can we forbid calling Object members on this extension type?
-//   (The lack of "implements Object" ought to do that, but doesn't.)
-//   In particular an interpolation "foo > $topic" is a bug we'd like to catch.
-// TODO(dart): Can we forbid using this extension type as a key in a Map?
-//   (The lack of "implements Object" arguably should do that, but doesn't.)
-//   Using as a Map key is almost certainly a bug because it won't case-fold;
-//   see for example #739, #980, #1205.
-extension type const TopicName(String _value) {
-  /// The canonical form of the resolved-topic prefix.
-  // This is RESOLVED_TOPIC_PREFIX in web:
-  //   https://github.com/zulip/zulip/blob/1fac99733/web/shared/src/resolved_topic.ts
-  static const resolvedTopicPrefix = '✔ ';
-
-  /// Pattern for an arbitrary resolved-topic prefix.
-  ///
-  /// These always begin with [resolvedTopicPrefix]
-  /// but can be weird and go on longer, like "✔ ✔✔ ".
-  // This is RESOLVED_TOPIC_PREFIX_RE in web:
-  //   https://github.com/zulip/zulip/blob/1fac99733/web/shared/src/resolved_topic.ts#L4-L12
-  static final resolvedTopicPrefixRegexp = RegExp(r'^✔ [ ✔]*');
-
-  /// The string this topic is identified by in the Zulip API.
-  ///
-  /// This should be used in constructing HTTP requests to the server,
-  /// but rarely for other purposes.  See [displayName] and [canonicalize].
-  String get apiName => _value;
-
-  /// The string this topic is displayed as to the user in our UI.
-  ///
-  /// At the moment this always equals [apiName].
-  /// In the future this will become null for the "general chat" topic (#1250),
-  /// so that UI code can identify when it needs to represent the topic
-  /// specially in the way prescribed for "general chat".
-  // TODO(#1250) carry out that plan
-  String get displayName => _value;
-
-  /// The key to use for "same topic as" comparisons.
-  String canonicalize() => apiName.toLowerCase();
-
-  /// Whether the topic starts with [resolvedTopicPrefix].
-  bool get isResolved => _value.startsWith(resolvedTopicPrefix);
-
-  /// This [TopicName] plus the [resolvedTopicPrefix] prefix.
-  TopicName resolve() => TopicName(resolvedTopicPrefix + _value);
-
-  /// A [TopicName] with [resolvedTopicPrefixRegexp] stripped if present.
-  TopicName unresolve() =>
-    TopicName(_value.replaceFirst(resolvedTopicPrefixRegexp, ''));
-
-  /// Whether [this] and [other] have the same canonical form,
-  /// using [canonicalize].
-  bool isSameAs(TopicName other) => canonicalize() == other.canonicalize();
-
-  TopicName.fromJson(this._value);
-
-  String toJson() => apiName;
-}
-
 @JsonSerializable(fieldRename: FieldRename.snake)
-class StreamMessage extends Message {
+class StreamMessage extends Message<StreamConversation> {
   @override
   @JsonKey(includeToJson: true)
   String get type => 'stream';
 
-  // This is not nullable API-wise, but if the message moves across channels,
-  // [displayRecipient] still refers to the original channel and it has to be
-  // invalidated.
-  @JsonKey(required: true, disallowNullValue: true)
-  String? displayRecipient;
-
-  int streamId;
+  @JsonKey(includeToJson: true)
+  int get streamId => conversation.streamId;
 
   // The topic/subject is documented to be present on DMs too, just empty.
   // We ignore it on DMs; if a future server introduces distinct topics in DMs,
   // that will need new UI that we'll design then as part of that feature,
   // and ignoring the topics seems as good a fallback behavior as any.
-  @JsonKey(name: 'subject')
-  TopicName topic;
+  @JsonKey(name: 'subject', includeToJson: true)
+  TopicName get topic => conversation.topic;
+
+  @JsonKey(includeToJson: true)
+  String? get displayRecipient => conversation.displayRecipient;
+
+  @override
+  @JsonKey(readValue: _readConversation, includeToJson: false)
+  StreamConversation conversation;
+
+  static Map<String, dynamic> _readConversation(Map<dynamic, dynamic> json, String key) {
+    return json as Map<String, dynamic>;
+  }
 
   StreamMessage({
     required super.client,
@@ -751,11 +994,7 @@ class StreamMessage extends Message {
     required super.senderRealmStr,
     required super.timestamp,
     required super.flags,
-    required super.matchContent,
-    required super.matchTopic,
-    required this.displayRecipient,
-    required this.streamId,
-    required this.topic,
+    required this.conversation,
   });
 
   factory StreamMessage.fromJson(Map<String, dynamic> json) =>
@@ -766,77 +1005,38 @@ class StreamMessage extends Message {
 }
 
 @JsonSerializable(fieldRename: FieldRename.snake)
-class DmRecipient {
-  final int id;
-  final String email;
-  final String fullName;
-
-  // final String? shortName; // obsolete, ignore
-  // final bool? isMirrorDummy; // obsolete, ignore
-
-  DmRecipient({required this.id, required this.email, required this.fullName});
-
-  factory DmRecipient.fromJson(Map<String, dynamic> json) =>
-    _$DmRecipientFromJson(json);
-
-  Map<String, dynamic> toJson() => _$DmRecipientToJson(this);
-
-  @override
-  String toString() => 'DmRecipient(id: $id, email: $email, fullName: $fullName)';
-
-  @override
-  bool operator ==(Object other) {
-    if (other is! DmRecipient) return false;
-    return other.id == id && other.email == email && other.fullName == fullName;
-  }
-
-  @override
-  int get hashCode => Object.hash('DmRecipient', id, email, fullName);
-}
-
-class DmRecipientListConverter extends JsonConverter<List<DmRecipient>, List<dynamic>> {
-  const DmRecipientListConverter();
-
-  @override
-  List<DmRecipient> fromJson(List<dynamic> json) {
-    return json.map((e) => DmRecipient.fromJson(e as Map<String, dynamic>))
-      .toList(growable: false)
-      ..sort((a, b) => a.id.compareTo(b.id));
-  }
-
-  @override
-  List<dynamic> toJson(List<DmRecipient> object) => object;
-}
-
-@JsonSerializable(fieldRename: FieldRename.snake)
-class DmMessage extends Message {
+class DmMessage extends Message<DmConversation> {
   @override
   @JsonKey(includeToJson: true)
   String get type => 'private';
 
-  /// The `display_recipient` from the server, sorted by user ID numerically.
+  /// The user IDs of all users in the thread, sorted numerically, as in
+  /// `display_recipient` from the server.
+  ///
+  /// The other fields on `display_recipient` are ignored and won't roundtrip.
   ///
   /// This lists the sender as well as all (other) recipients, and it
   /// lists each user just once.  In particular the self-user is always
   /// included.
-  ///
-  /// Note the data here is not updated on changes to the users, so everything
-  /// other than the user IDs may be stale.
-  /// Consider using [allRecipientIds] instead, and getting user details
-  /// from the store.
   // TODO(server): Document that it's all users.  That statement is based on
   //   reverse-engineering notes in zulip-mobile:src/api/modelTypes.js at PmMessage.
-  @DmRecipientListConverter()
-  final List<DmRecipient> displayRecipient;
+  @JsonKey(name: 'display_recipient', toJson: _allRecipientIdsToJson, includeToJson: true)
+  List<int> get allRecipientIds => conversation.allRecipientIds;
 
-  /// The user IDs of all users in the thread, sorted numerically.
-  ///
-  /// This lists the sender as well as all (other) recipients, and it
-  /// lists each user just once.  In particular the self-user is always
-  /// included.
-  ///
-  /// This is a result of [List.map], so it has an efficient `length`.
-  Iterable<int> get allRecipientIds => displayRecipient.map((e) => e.id);
+  @override
+  @JsonKey(name: 'display_recipient', fromJson: _conversationFromJson, includeToJson: false)
+  final DmConversation conversation;
+
+  static List<Map<String, dynamic>> _allRecipientIdsToJson(List<int> allRecipientIds) {
+    return allRecipientIds.map((element) => {'id': element}).toList();
+  }
+
+  static DmConversation _conversationFromJson(List<dynamic> json) {
+    return DmConversation(allRecipientIds: json.map(
+      (element) => ((element as Map<String, dynamic>)['id'] as num).toInt()
+    ).toList(growable: false)
+     ..sort());
+  }
 
   DmMessage({
     required super.client,
@@ -854,9 +1054,7 @@ class DmMessage extends Message {
     required super.senderRealmStr,
     required super.timestamp,
     required super.flags,
-    required super.matchContent,
-    required super.matchTopic,
-    required this.displayRecipient,
+    required this.conversation,
   });
 
   factory DmMessage.fromJson(Map<String, dynamic> json) =>
